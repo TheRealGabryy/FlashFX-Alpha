@@ -76,6 +76,10 @@ interface DesignModeLayoutProps {
   // Project Save/Exit
   onSaveProject?: () => Promise<void>;
   onExitToHome?: () => void;
+
+  // Project File Management
+  onSaveProjectFile?: () => void;
+  onLoadProjectFile?: () => void;
 }
 
 const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
@@ -114,7 +118,9 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
   userId,
   isGuest = false,
   onSaveProject,
-  onExitToHome
+  onExitToHome,
+  onSaveProjectFile,
+  onLoadProjectFile
 }) => {
   const [showGridSettings, setShowGridSettings] = useState(false);
   const [isLayersPanelCollapsed, setIsLayersPanelCollapsed] = useState(false);
@@ -299,6 +305,8 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
                 currentMode={currentMode}
                 onModeChange={setMode}
                 isTransitioning={isTransitioning}
+                onSaveProject={onSaveProjectFile}
+                onLoadProject={onLoadProjectFile}
               />
             </div>
           </div>
