@@ -14,12 +14,24 @@ import {
   LowLevelShape,
 } from '../../types/aiPipeline';
 
+type MessageStatus = 'pending' | 'processing' | 'completed' | 'failed';
+
+interface ShapeGenerationItem {
+  index: number;
+  type: string;
+  status: MessageStatus;
+  error?: string;
+}
+
 interface Message {
   id: string;
   type: 'user' | 'ai';
   content: string;
   timestamp: Date;
   isStreaming?: boolean;
+  status?: MessageStatus;
+  isStepMessage?: boolean;
+  shapeItems?: ShapeGenerationItem[];
 }
 
 interface AIChatTabProps {
@@ -73,6 +85,10 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
   const [currentPipeline, setCurrentPipeline] = useState<GenerationPipeline | null>(null);
   const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({ current: 0, total: 0 });
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [shapeGenerationItems, setShapeGenerationItems] = useState<ShapeGenerationItem[]>([]);
+  const [validationMessageId, setValidationMessageId] = useState<string | null>(null);
+  const [breakdownMessageId, setBreakdownMessageId] = useState<string | null>(null);
+  const [planMessageId, setPlanMessageId] = useState<string | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -189,6 +205,26 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     return element;
   };
 
+  const addStepMessage = (content: string, status: MessageStatus = 'pending', isStepMessage: boolean = true): string => {
+    const messageId = `step-${Date.now()}-${Math.random()}`;
+    const message: Message = {
+      id: messageId,
+      type: 'ai',
+      content,
+      timestamp: new Date(),
+      status,
+      isStepMessage,
+    };
+    setMessages(prev => [...prev, message]);
+    return messageId;
+  };
+
+  const updateStepMessage = (messageId: string, updates: Partial<Message>) => {
+    setMessages(prev => prev.map(msg =>
+      msg.id === messageId ? { ...msg, ...updates } : msg
+    ));
+  };
+
   const handleRealAIPipeline = async (userPrompt: string) => {
     const startTime = Date.now();
     const controller = new AbortController();
@@ -201,9 +237,17 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     debugLog('Starting real AI pipeline', { prompt: userPrompt, pipelineId: pipeline.id });
 
     try {
+      const introMessageId = addStepMessage(
+        "I'll create a beautiful design with your specified requirements. Preparing to start...",
+        'completed',
+        false
+      );
+      await new Promise(resolve => setTimeout(resolve, 800));
       setPipelineStage('validating');
       setValidationStatus('pending');
-      setGenerationStatus('Validating your prompt...');
+
+      const validationMsgId = addStepMessage('Checking prompt...', 'processing');
+      setValidationMessageId(validationMsgId);
 
       const validationResponse = await OpenAIService.validatePrompt(userPrompt, controller.signal);
 
@@ -212,30 +256,48 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
       });
 
       if (!validationResponse.accepted) {
+        updateStepMessage(validationMsgId, {
+          content: 'Prompt Rejected ✗',
+          status: 'failed',
+        });
         setValidationStatus('rejected');
         setPipelineStage('error');
-        setGenerationStatus('');
 
         GenerationStorageService.updatePipelineStatus(pipeline.id, 'failed');
 
         return {
           success: false,
-          message: '❌ Prompt Rejected: Your request did not pass validation. Please try a different prompt that aligns with creating UI/design elements.',
+          message: 'Your request did not pass validation. Please try a different prompt that aligns with creating UI/design elements.',
         };
       }
 
+      updateStepMessage(validationMsgId, {
+        content: 'Prompt Approved ✓',
+        status: 'completed',
+      });
       setValidationStatus('accepted');
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 600));
 
       setPipelineStage('high-level');
-      setGenerationStatus('Analyzing request and creating design structure...');
+
+      const breakdownMsgId = addStepMessage('Breaking down request...', 'processing');
+      setBreakdownMessageId(breakdownMsgId);
 
       const highLevelShapes = await OpenAIService.generateHighLevelStructure(userPrompt, controller.signal);
 
       const validation = JSONValidator.validateHighLevelArray(highLevelShapes);
       if (!validation.valid || validation.validShapes.length === 0) {
+        updateStepMessage(breakdownMsgId, {
+          content: `Breakdown Failed ✗ - ${validation.errors[0] || 'Unknown error'}`,
+          status: 'failed',
+        });
         throw new Error(`High-level generation failed: ${validation.errors.join(', ')}`);
       }
+
+      updateStepMessage(breakdownMsgId, {
+        content: 'Action Completed ✓',
+        status: 'completed',
+      });
 
       GenerationStorageService.updatePipelineStage(pipeline.id, {
         highLevel: {
@@ -245,9 +307,35 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
         },
       });
 
+      await new Promise(resolve => setTimeout(resolve, 600));
+
+      addStepMessage(
+        `I've broken down the animation into an actionable plan. Now I need to create the shapes one by one. This process might take a while because the AI is experimental. You can still edit while I generate and check the status on the plan below:`,
+        'completed',
+        false
+      );
+
+      await new Promise(resolve => setTimeout(resolve, 400));
+
+      const shapeItems: ShapeGenerationItem[] = validation.validShapes.map((shape, idx) => ({
+        index: idx,
+        type: shape.type,
+        status: 'pending',
+      }));
+      setShapeGenerationItems(shapeItems);
+
+      const planMsgId = `plan-${Date.now()}`;
+      setPlanMessageId(planMsgId);
+      const planMessage: Message = {
+        id: planMsgId,
+        type: 'ai',
+        content: 'Generation Plan:',
+        timestamp: new Date(),
+        shapeItems: shapeItems,
+      };
+      setMessages(prev => [...prev, planMessage]);
+
       setGenerationProgress({ current: 0, total: validation.validShapes.length });
-      setGenerationStatus(`Found ${validation.validShapes.length} elements to create`);
-      await new Promise(resolve => setTimeout(resolve, 500));
 
       setPipelineStage('low-level');
       const lowLevelShapes: LowLevelShape[] = [];
@@ -256,7 +344,18 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
       for (let i = 0; i < validation.validShapes.length; i++) {
         const highLevelShape = validation.validShapes[i];
         setGenerationProgress({ current: i + 1, total: validation.validShapes.length });
-        setGenerationStatus(`Processing element ${i + 1} of ${validation.validShapes.length}...`);
+
+        setMessages(prev => prev.map(msg => {
+          if (msg.id === planMsgId && msg.shapeItems) {
+            return {
+              ...msg,
+              shapeItems: msg.shapeItems.map((item, idx) =>
+                idx === i ? { ...item, status: 'processing' as MessageStatus } : item
+              ),
+            };
+          }
+          return msg;
+        }));
 
         try {
           const lowLevelShape = await OpenAIService.generateLowLevelShape(
@@ -274,9 +373,33 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
             const repaired = JSONValidator.repairLowLevelShape(lowLevelShape);
             lowLevelShapes.push(repaired);
           }
+
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === planMsgId && msg.shapeItems) {
+              return {
+                ...msg,
+                shapeItems: msg.shapeItems.map((item, idx) =>
+                  idx === i ? { ...item, status: 'completed' as MessageStatus } : item
+                ),
+              };
+            }
+            return msg;
+          }));
         } catch (error) {
           console.error(`Failed to generate low-level shape ${i}:`, error);
           failedIndices.push(i);
+
+          setMessages(prev => prev.map(msg => {
+            if (msg.id === planMsgId && msg.shapeItems) {
+              return {
+                ...msg,
+                shapeItems: msg.shapeItems.map((item, idx) =>
+                  idx === i ? { ...item, status: 'failed' as MessageStatus, error: 'Generation failed' } : item
+                ),
+              };
+            }
+            return msg;
+          }));
         }
 
         if (i < validation.validShapes.length - 1) {
@@ -753,6 +876,19 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     }
   };
 
+  const renderShapeStatusIcon = (status: MessageStatus) => {
+    switch (status) {
+      case 'pending':
+        return <span className="text-gray-500 text-sm">-</span>;
+      case 'processing':
+        return <Loader2 className="w-3 h-3 text-violet-400 animate-spin" />;
+      case 'completed':
+        return <CheckCircle className="w-3 h-3 text-green-400" />;
+      case 'failed':
+        return <XCircle className="w-3 h-3 text-red-400" />;
+    }
+  };
+
   const renderPipelineStatus = () => {
     if (pipelineStage === 'validating') {
       return (
@@ -882,25 +1018,68 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
                 {message.type === 'ai' && (
                   <div className="flex-1">
                     {message.isStreaming && !message.content ? (
-                      renderThinkingIndicator()
+                      <div className="flex items-center space-x-2 text-gray-400 py-2">
+                        <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
+                        <span className="text-sm">Thinking...</span>
+                      </div>
                     ) : (
                       <div>
-                        <div className="text-sm whitespace-pre-wrap leading-relaxed">
-                          {message.content}
-                          {message.isStreaming && streamingMessageId === message.id && (
-                            <span className="inline-block w-0.5 h-4 bg-violet-400 ml-1 animate-pulse" />
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
-                          <span>{formatTime(message.timestamp)}</span>
-                          <button
-                            onClick={() => copyMessage(message.content)}
-                            className="p-1 rounded hover:bg-violet-700/30 transition-colors opacity-0 group-hover:opacity-100"
-                            title="Copy message"
-                          >
-                            <Copy className="w-3 h-3 text-gray-400 hover:text-violet-400" />
-                          </button>
-                        </div>
+                        {/* Step Message with Status */}
+                        {message.isStepMessage && (
+                          <div className="flex items-center space-x-2">
+                            {message.status === 'processing' && <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />}
+                            {message.status === 'completed' && <CheckCircle className="w-4 h-4 text-green-400" />}
+                            {message.status === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
+                            <span className="text-sm">{message.content}</span>
+                          </div>
+                        )}
+
+                        {/* Shape Generation Plan */}
+                        {message.shapeItems && message.shapeItems.length > 0 && (
+                          <div className="space-y-2">
+                            <div className="text-sm font-medium text-violet-400 mb-2">{message.content}</div>
+                            <div className="bg-gray-800/50 rounded-lg p-3 space-y-1.5 border border-violet-500/20">
+                              {message.shapeItems.map((item, idx) => (
+                                <div
+                                  key={idx}
+                                  className="flex items-center space-x-3 py-1.5 px-2 rounded hover:bg-gray-700/30 transition-colors"
+                                >
+                                  <div className="flex items-center justify-center w-5">
+                                    {renderShapeStatusIcon(item.status)}
+                                  </div>
+                                  <span className="text-xs text-gray-300 capitalize flex-1">
+                                    {item.type} {idx + 1}
+                                  </span>
+                                  {item.error && (
+                                    <span className="text-xs text-red-400">{item.error}</span>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Regular Message */}
+                        {!message.isStepMessage && !message.shapeItems && (
+                          <div>
+                            <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                              {message.content}
+                              {message.isStreaming && streamingMessageId === message.id && (
+                                <span className="inline-block w-0.5 h-4 bg-violet-400 ml-1 animate-pulse" />
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
+                              <span>{formatTime(message.timestamp)}</span>
+                              <button
+                                onClick={() => copyMessage(message.content)}
+                                className="p-1 rounded hover:bg-violet-700/30 transition-colors opacity-0 group-hover:opacity-100"
+                                title="Copy message"
+                              >
+                                <Copy className="w-3 h-3 text-gray-400 hover:text-violet-400" />
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
