@@ -66,6 +66,36 @@ html, body {
   box-shadow: 0 0 10px rgba(139, 92, 246, 0.5);
 }
 
+/* Typewriter cursor animation */
+@keyframes blink-cursor {
+  0%, 49% {
+    opacity: 1;
+  }
+  50%, 100% {
+    opacity: 0;
+  }
+}
+
+.typewriter-cursor {
+  animation: blink-cursor 1s infinite;
+}
+
+/* Message entrance animation */
+@keyframes message-slide-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.message-animation {
+  animation: message-slide-in 0.3s ease-out;
+}
+
 /* Custom Scrollbars for Premium Look */
 ::-webkit-scrollbar {
   width: 6px;

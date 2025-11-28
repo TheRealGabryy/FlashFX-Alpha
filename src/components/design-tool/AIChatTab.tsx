@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Trash2, Copy, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Send, Trash2, Copy, Sparkles, CheckCircle, XCircle, Loader2, StopCircle } from 'lucide-react';
 import { DesignElement } from '../../types/design';
 import { OpenAIService } from '../../services/OpenAIService';
 import { GenerationStorageService } from '../../services/GenerationStorageService';
@@ -89,6 +89,8 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
   const [validationMessageId, setValidationMessageId] = useState<string | null>(null);
   const [breakdownMessageId, setBreakdownMessageId] = useState<string | null>(null);
   const [planMessageId, setPlanMessageId] = useState<string | null>(null);
+  const [typewriterMessages, setTypewriterMessages] = useState<Set<string>>(new Set());
+  const [typingMessageId, setTypingMessageId] = useState<string | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -205,17 +207,45 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     return element;
   };
 
-  const addStepMessage = (content: string, status: MessageStatus = 'pending', isStepMessage: boolean = true): string => {
+  const simulateTypewriter = (messageId: string, fullContent: string) => {
+    let currentIndex = 0;
+    const chars = fullContent.split('');
+    const speed = 20;
+
+    const typeInterval = setInterval(() => {
+      if (currentIndex < chars.length) {
+        currentIndex++;
+        setMessages(prev => prev.map(msg => {
+          if (msg.id === messageId) {
+            return { ...msg, content: fullContent.substring(0, currentIndex) };
+          }
+          return msg;
+        }));
+      } else {
+        clearInterval(typeInterval);
+        setTypingMessageId(null);
+        setTypewriterMessages(prev => new Set([...prev, messageId]));
+      }
+    }, speed);
+  };
+
+  const addStepMessage = (content: string, status: MessageStatus = 'pending', isStepMessage: boolean = true, useTypewriter: boolean = false): string => {
     const messageId = `step-${Date.now()}-${Math.random()}`;
     const message: Message = {
       id: messageId,
       type: 'ai',
-      content,
+      content: useTypewriter ? '' : content,
       timestamp: new Date(),
       status,
       isStepMessage,
     };
     setMessages(prev => [...prev, message]);
+
+    if (useTypewriter) {
+      setTypingMessageId(messageId);
+      setTimeout(() => simulateTypewriter(messageId, content), 100);
+    }
+
     return messageId;
   };
 
@@ -240,9 +270,10 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
       const introMessageId = addStepMessage(
         "I'll create a beautiful design with your specified requirements. Preparing to start...",
         'completed',
-        false
+        false,
+        true
       );
-      await new Promise(resolve => setTimeout(resolve, 800));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       setPipelineStage('validating');
       setValidationStatus('pending');
 
@@ -309,13 +340,14 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
 
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      addStepMessage(
+      const explanationId = addStepMessage(
         `I've broken down the animation into an actionable plan. Now I need to create the shapes one by one. This process might take a while because the AI is experimental. You can still edit while I generate and check the status on the plan below:`,
         'completed',
-        false
+        false,
+        true
       );
 
-      await new Promise(resolve => setTimeout(resolve, 400));
+      await new Promise(resolve => setTimeout(resolve, 2800));
 
       const shapeItems: ShapeGenerationItem[] = validation.validShapes.map((shape, idx) => ({
         index: idx,
@@ -708,23 +740,29 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     return shapes;
   };
 
-  const handleCancelGeneration = () => {
+  const handleStopGeneration = () => {
     if (abortController) {
       abortController.abort();
       setAbortController(null);
-      setPipelineStage('idle');
-      setGenerationStatus('');
-      setIsProcessing(false);
-      setStatus('ready');
-
-      const cancelMessage: Message = {
-        id: `cancel-${Date.now()}`,
-        type: 'ai',
-        content: '⛔ Generation cancelled by user.',
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, cancelMessage]);
     }
+
+    setPipelineStage('idle');
+    setGenerationStatus('');
+    setIsProcessing(false);
+    setStatus('ready');
+    setValidationStatus(null);
+    setGenerationProgress({ current: 0, total: 0 });
+
+    if (currentPipeline) {
+      GenerationStorageService.updatePipelineStatus(currentPipeline.id, 'failed');
+    }
+
+    addStepMessage(
+      '⛔ Generation stopped by user. No elements were added to the canvas.',
+      'failed',
+      false,
+      true
+    );
   };
 
   // Stream message character by character with enhanced timing
@@ -977,14 +1015,14 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
               <div className="flex-1">
                 {renderPipelineStatus()}
               </div>
-              {abortController && (
-                <button
-                  onClick={handleCancelGeneration}
-                  className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded transition-colors"
-                >
-                  Cancel
-                </button>
-              )}
+              <button
+                onClick={handleStopGeneration}
+                className="flex items-center space-x-2 px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded-md transition-all duration-200 hover:scale-105 border border-red-500/30"
+                title="Stop generation completely"
+              >
+                <StopCircle className="w-3.5 h-3.5" />
+                <span className="font-medium">Stop</span>
+              </button>
             </div>
           </div>
         )}
@@ -1005,7 +1043,7 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
               animationFillMode: 'both'
             }}
           >
-            <div className={`max-w-[85%] group relative`}>
+            <div className={`${message.shapeItems ? 'max-w-[95%]' : 'max-w-[85%]'} group relative`}>
               {/* Enhanced Message Bubble */}
               <div
                 className={`px-3 py-2.5 rounded-lg shadow-lg transition-all duration-200 message-bubble-hover backdrop-blur-sm ${
@@ -1030,28 +1068,33 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
                             {message.status === 'processing' && <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />}
                             {message.status === 'completed' && <CheckCircle className="w-4 h-4 text-green-400" />}
                             {message.status === 'failed' && <XCircle className="w-4 h-4 text-red-400" />}
-                            <span className="text-sm">{message.content}</span>
+                            <span className="text-sm">
+                              {message.content}
+                              {typingMessageId === message.id && (
+                                <span className="inline-block w-0.5 h-4 bg-violet-400 ml-0.5 animate-pulse" />
+                              )}
+                            </span>
                           </div>
                         )}
 
                         {/* Shape Generation Plan */}
                         {message.shapeItems && message.shapeItems.length > 0 && (
-                          <div className="space-y-2">
+                          <div className="space-y-2 w-full">
                             <div className="text-sm font-medium text-violet-400 mb-2">{message.content}</div>
-                            <div className="bg-gray-800/50 rounded-lg p-3 space-y-1.5 border border-violet-500/20">
+                            <div className="bg-gradient-to-br from-gray-800/80 to-gray-900/80 rounded-lg p-4 space-y-2 border border-violet-500/30 shadow-lg w-full min-w-[300px]">
                               {message.shapeItems.map((item, idx) => (
                                 <div
                                   key={idx}
-                                  className="flex items-center space-x-3 py-1.5 px-2 rounded hover:bg-gray-700/30 transition-colors"
+                                  className="flex items-center space-x-3 py-2 px-3 rounded-md hover:bg-gray-700/40 transition-all duration-200 border border-gray-700/30"
                                 >
-                                  <div className="flex items-center justify-center w-5">
+                                  <div className="flex items-center justify-center w-6 h-6">
                                     {renderShapeStatusIcon(item.status)}
                                   </div>
-                                  <span className="text-xs text-gray-300 capitalize flex-1">
+                                  <span className="text-sm text-gray-200 capitalize flex-1 font-medium">
                                     {item.type} {idx + 1}
                                   </span>
                                   {item.error && (
-                                    <span className="text-xs text-red-400">{item.error}</span>
+                                    <span className="text-xs text-red-400 italic">{item.error}</span>
                                   )}
                                 </div>
                               ))}
@@ -1064,9 +1107,9 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
                           <div>
                             <div className="text-sm whitespace-pre-wrap leading-relaxed">
                               {message.content}
-                              {message.isStreaming && streamingMessageId === message.id && (
-                                <span className="inline-block w-0.5 h-4 bg-violet-400 ml-1 animate-pulse" />
-                              )}
+                              {(message.isStreaming && streamingMessageId === message.id) || typingMessageId === message.id ? (
+                                <span className="inline-block w-0.5 h-4 bg-violet-400 ml-0.5 animate-pulse" />
+                              ) : null}
                             </div>
                             <div className="text-xs text-gray-500 mt-2 flex items-center justify-between">
                               <span>{formatTime(message.timestamp)}</span>
