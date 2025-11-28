@@ -15,16 +15,16 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
 }) => {
   return (
     <div className="w-full flex items-center justify-center bg-gray-800/50 backdrop-blur-xl border-t border-gray-700/50 py-2">
-      <div className="flex items-center gap-0.5 bg-gray-700/30 rounded p-0.5" style={{ width: '50%' }}>
+      <div className="flex items-center gap-1 bg-gray-900/50 rounded-lg p-1 border border-gray-700/50">
         <button
           onClick={() => onModeChange('design')}
           disabled={isTransitioning}
           className={`
-            flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded font-medium text-sm
+            flex items-center justify-center gap-2 px-6 py-2 rounded-md font-medium text-sm
             transition-all duration-200
             ${currentMode === 'design'
-              ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50'
-              : 'text-gray-400 hover:text-white hover:bg-gray-600/30'
+              ? 'bg-gray-700/70 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/40'
             }
             ${isTransitioning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
@@ -37,11 +37,11 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
           onClick={() => onModeChange('edit')}
           disabled={isTransitioning}
           className={`
-            flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded font-medium text-sm
+            flex items-center justify-center gap-2 px-6 py-2 rounded-md font-medium text-sm
             transition-all duration-200
             ${currentMode === 'edit'
-              ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50'
-              : 'text-gray-400 hover:text-white hover:bg-gray-600/30'
+              ? 'bg-gray-700/70 text-white'
+              : 'text-gray-400 hover:text-white hover:bg-gray-700/40'
             }
             ${isTransitioning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
