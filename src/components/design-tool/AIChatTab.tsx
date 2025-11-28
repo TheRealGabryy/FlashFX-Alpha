@@ -16,28 +16,58 @@ interface AIChatTabProps {
   onUpdateElement?: (id: string, updates: Partial<DesignElement>) => void;
 }
 
+const CHAT_STORAGE_KEY = 'flashfx_ai_chat_history';
+
 const AIChatTab: React.FC<AIChatTabProps> = ({
   onAddElement,
   onAddMultipleElements,
   onUpdateElement
 }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-1',
-      type: 'ai',
-      content: 'Hello! I\'m your AI assistant. I can help you create UI elements, animations, and motion graphics. What would you like to create today?',
-      timestamp: new Date()
+  // Load messages from localStorage on mount
+  const loadMessagesFromStorage = (): Message[] => {
+    try {
+      const stored = localStorage.getItem(CHAT_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Convert timestamp strings back to Date objects
+        return parsed.map((msg: any) => ({
+          ...msg,
+          timestamp: new Date(msg.timestamp)
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load chat history:', error);
     }
-  ]);
+    // Return default welcome message if nothing stored
+    return [
+      {
+        id: 'welcome-1',
+        type: 'ai',
+        content: 'Hello! I\'m your AI assistant. I can help you create UI elements, animations, and motion graphics. What would you like to create today?',
+        timestamp: new Date()
+      }
+    ];
+  };
+
+  const [messages, setMessages] = useState<Message[]>(loadMessagesFromStorage());
   const [inputValue, setInputValue] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [status, setStatus] = useState<'ready' | 'processing' | 'error'>('ready');
   const [generationStatus, setGenerationStatus] = useState<string>('');
-  
+
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Save messages to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    } catch (error) {
+      console.error('Failed to save chat history:', error);
+    }
+  }, [messages]);
 
   // Debug logging for AI pipeline
   const debugLog = (stage: string, data: any) => {
@@ -540,12 +570,19 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
   };
 
   const clearChat = () => {
-    setMessages([{
+    const welcomeMessage = {
       id: 'welcome-reset',
-      type: 'ai',
+      type: 'ai' as const,
       content: 'Chat cleared! I\'m ready to help you create new UI elements and animations. What would you like to build?',
       timestamp: new Date()
-    }]);
+    };
+    setMessages([welcomeMessage]);
+    // Clear from localStorage
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify([welcomeMessage]));
+    } catch (error) {
+      console.error('Failed to clear chat history from storage:', error);
+    }
     debugLog('Chat cleared');
   };
 

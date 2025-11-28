@@ -213,7 +213,7 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
       };
 
   return (
-    <div className={`${editorMode ? 'h-screen' : 'h-[calc(100vh-80px)]'} bg-gray-900 overflow-hidden`}>
+    <div className={`${editorMode ? 'h-screen' : 'h-[calc(100vh-80px)]'} bg-gray-900 overflow-hidden editor-cursor-default`}>
       <div className={`h-full transition-opacity duration-150 ${isTransitioning ? 'opacity-50' : 'opacity-100'}`} style={{
         display: 'grid',
         ...gridLayout

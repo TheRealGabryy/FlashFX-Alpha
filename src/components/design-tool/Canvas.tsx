@@ -394,10 +394,10 @@ const Canvas: React.FC<CanvasProps> = ({
   };
 
   return (
-    <div className="w-full h-full relative overflow-hidden bg-gray-900">
+    <div className="w-full h-full relative overflow-hidden bg-gray-900 editor-cursor-default">
       <div
         ref={canvasRef}
-        className="w-full h-full flex items-center justify-center p-4"
+        className={`w-full h-full flex items-center justify-center p-4 ${isDragging || selectionBox ? 'editor-cursor-dragging' : 'editor-cursor-default'}`}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

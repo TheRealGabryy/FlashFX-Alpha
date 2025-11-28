@@ -13,6 +13,15 @@ html, body {
   height: 100%;
 }
 
+/* Custom Editor Cursor */
+.editor-cursor-default {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23FFD700' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z'/%3E%3Cpath d='m13 13 6 6'/%3E%3C/svg%3E") 2 2, auto;
+}
+
+.editor-cursor-dragging {
+  cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='%23FFD700' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m9 9 5 12 1.774-5.226L21 14 9 9z'/%3E%3Cpath d='m16.071 16.071 4.243 4.243'/%3E%3Cpath d='m7.188 2.239.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656-2.12 2.122'/%3E%3C/svg%3E") 2 2, auto;
+}
+
 /* Custom Scrollbars for Premium Look */
 ::-webkit-scrollbar {
   width: 6px;

@@ -139,9 +139,9 @@ const GeneralTimeline: React.FC<GeneralTimelineProps> = ({
           <div className="relative h-full" style={{ width: `${duration * pixelsPerSecond}px`, minWidth: '100%' }}>
             {renderRulerTicks()}
 
-            {/* Playhead in ruler for drag handle */}
+            {/* Playhead line in ruler */}
             <div
-              className="absolute top-0 bottom-0 w-0.5 bg-transparent z-10 cursor-ew-resize"
+              className="absolute top-0 bottom-0 w-0.5 bg-yellow-400 z-10 cursor-ew-resize"
               style={{ left: `${playheadPosition}px` }}
               onMouseDown={() => setIsDraggingPlayhead(true)}
             >
