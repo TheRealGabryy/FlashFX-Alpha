@@ -271,7 +271,7 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
           </div>
 
           {/* Canvas Area + Layout Bar Container */}
-          <div className="flex-1 flex flex-col bg-white relative overflow-hidden">
+          <div className="flex-1 flex flex-col bg-gray-900 relative overflow-hidden">
             {/* Canvas Area */}
             <div className="flex-1 relative overflow-hidden">
               <Canvas
