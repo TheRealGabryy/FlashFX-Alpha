@@ -75,7 +75,7 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
   };
 
   // OpenAI API Configuration (Demo - replace with real keys in production)
-  const OPENAI_API_KEY = 'sk-proj-demo-key'; // Replace with real API key
+  const OPENAI_API_KEY = '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'; // Replace with real API key
   const ASSISTANT_1_ID = 'asst_structure'; // High-level structure assistant
   const ASSISTANT_2_ID = 'asst_details'; // Detailed shapes assistant
 
