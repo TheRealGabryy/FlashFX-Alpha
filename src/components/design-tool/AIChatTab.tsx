@@ -1,6 +1,18 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Trash2, Copy, Sparkles } from 'lucide-react';
+import { Send, Trash2, Copy, Sparkles, CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import { DesignElement } from '../../types/design';
+import { OpenAIService } from '../../services/OpenAIService';
+import { GenerationStorageService } from '../../services/GenerationStorageService';
+import { JSONMapper } from '../../utils/jsonMapper';
+import { JSONValidator } from '../../utils/jsonValidator';
+import {
+  PipelineStage,
+  ValidationStatus,
+  GenerationProgress,
+  GenerationPipeline,
+  HighLevelShape,
+  LowLevelShape,
+} from '../../types/aiPipeline';
 
 interface Message {
   id: string;
@@ -55,6 +67,12 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
   const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null);
   const [status, setStatus] = useState<'ready' | 'processing' | 'error'>('ready');
   const [generationStatus, setGenerationStatus] = useState<string>('');
+
+  const [pipelineStage, setPipelineStage] = useState<PipelineStage>('idle');
+  const [validationStatus, setValidationStatus] = useState<ValidationStatus>(null);
+  const [currentPipeline, setCurrentPipeline] = useState<GenerationPipeline | null>(null);
+  const [generationProgress, setGenerationProgress] = useState<GenerationProgress>({ current: 0, total: 0 });
+  const [abortController, setAbortController] = useState<AbortController | null>(null);
 
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -171,13 +189,198 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     return element;
   };
 
-  // Mock AI generation for demo (replace with real OpenAI calls in production)
+  const handleRealAIPipeline = async (userPrompt: string) => {
+    const startTime = Date.now();
+    const controller = new AbortController();
+    setAbortController(controller);
+
+    const pipeline = GenerationStorageService.createNewPipeline(userPrompt);
+    setCurrentPipeline(pipeline);
+    GenerationStorageService.saveGenerationPipeline(pipeline);
+
+    debugLog('Starting real AI pipeline', { prompt: userPrompt, pipelineId: pipeline.id });
+
+    try {
+      setPipelineStage('validating');
+      setValidationStatus('pending');
+      setGenerationStatus('Validating your prompt...');
+
+      const validationResponse = await OpenAIService.validatePrompt(userPrompt, controller.signal);
+
+      GenerationStorageService.updatePipelineStage(pipeline.id, {
+        validation: validationResponse,
+      });
+
+      if (!validationResponse.accepted) {
+        setValidationStatus('rejected');
+        setPipelineStage('error');
+        setGenerationStatus('');
+
+        GenerationStorageService.updatePipelineStatus(pipeline.id, 'failed');
+
+        return {
+          success: false,
+          message: '❌ Prompt Rejected: Your request did not pass validation. Please try a different prompt that aligns with creating UI/design elements.',
+        };
+      }
+
+      setValidationStatus('accepted');
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setPipelineStage('high-level');
+      setGenerationStatus('Analyzing request and creating design structure...');
+
+      const highLevelShapes = await OpenAIService.generateHighLevelStructure(userPrompt, controller.signal);
+
+      const validation = JSONValidator.validateHighLevelArray(highLevelShapes);
+      if (!validation.valid || validation.validShapes.length === 0) {
+        throw new Error(`High-level generation failed: ${validation.errors.join(', ')}`);
+      }
+
+      GenerationStorageService.updatePipelineStage(pipeline.id, {
+        highLevel: {
+          shapes: validation.validShapes,
+          rawResponse: JSON.stringify(highLevelShapes),
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      setGenerationProgress({ current: 0, total: validation.validShapes.length });
+      setGenerationStatus(`Found ${validation.validShapes.length} elements to create`);
+      await new Promise(resolve => setTimeout(resolve, 500));
+
+      setPipelineStage('low-level');
+      const lowLevelShapes: LowLevelShape[] = [];
+      const failedIndices: number[] = [];
+
+      for (let i = 0; i < validation.validShapes.length; i++) {
+        const highLevelShape = validation.validShapes[i];
+        setGenerationProgress({ current: i + 1, total: validation.validShapes.length });
+        setGenerationStatus(`Processing element ${i + 1} of ${validation.validShapes.length}...`);
+
+        try {
+          const lowLevelShape = await OpenAIService.generateLowLevelShape(
+            highLevelShape,
+            userPrompt,
+            0,
+            controller.signal
+          );
+
+          const shapeValidation = JSONValidator.validateLowLevelShape(lowLevelShape);
+          if (shapeValidation.valid) {
+            lowLevelShapes.push(lowLevelShape);
+          } else {
+            console.warn(`Low-level shape ${i} invalid, repairing:`, shapeValidation.errors);
+            const repaired = JSONValidator.repairLowLevelShape(lowLevelShape);
+            lowLevelShapes.push(repaired);
+          }
+        } catch (error) {
+          console.error(`Failed to generate low-level shape ${i}:`, error);
+          failedIndices.push(i);
+        }
+
+        if (i < validation.validShapes.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+      }
+
+      if (lowLevelShapes.length === 0) {
+        throw new Error('No shapes were successfully generated');
+      }
+
+      GenerationStorageService.updatePipelineStage(pipeline.id, {
+        lowLevel: {
+          shapes: lowLevelShapes,
+          failedIndices,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      setPipelineStage('placing');
+      setGenerationStatus('Placing elements on canvas...');
+
+      const designElements: DesignElement[] = [];
+      const placementFailed: number[] = [];
+
+      for (let i = 0; i < lowLevelShapes.length; i++) {
+        try {
+          const highLevelShape = validation.validShapes[i];
+          const lowLevelShape = lowLevelShapes[i];
+
+          const element = JSONMapper.mapToDesignElement(highLevelShape, lowLevelShape, i);
+          const clampedElement = JSONMapper.clampToCanvas(element);
+          designElements.push(clampedElement);
+        } catch (error) {
+          console.error(`Failed to place element ${i}:`, error);
+          placementFailed.push(i);
+        }
+      }
+
+      if (designElements.length === 0) {
+        throw new Error('No elements could be placed on canvas');
+      }
+
+      if (onAddMultipleElements) {
+        onAddMultipleElements(designElements);
+      } else {
+        for (const element of designElements) {
+          onAddElement(element);
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+
+      GenerationStorageService.updatePipelineStage(pipeline.id, {
+        placement: {
+          elementIds: designElements.map(e => e.id),
+          failed: placementFailed,
+          timestamp: new Date().toISOString(),
+        },
+      });
+
+      const processingTime = Date.now() - startTime;
+      GenerationStorageService.updatePipelineStatus(pipeline.id, 'complete', {
+        totalElements: validation.validShapes.length,
+        successfulElements: designElements.length,
+        processingTimeMs: processingTime,
+      });
+
+      setPipelineStage('complete');
+      setGenerationStatus('');
+
+      const successMessage = `✅ Successfully created ${designElements.length} elements in ${(processingTime / 1000).toFixed(1)}s!`;
+      const warningMessage = failedIndices.length > 0
+        ? `\n⚠️ ${failedIndices.length} element(s) could not be generated.`
+        : '';
+      const placementWarning = placementFailed.length > 0
+        ? `\n⚠️ ${placementFailed.length} element(s) could not be placed.`
+        : '';
+
+      return {
+        success: true,
+        message: successMessage + warningMessage + placementWarning,
+      };
+
+    } catch (error) {
+      const pipelineError = OpenAIService.createPipelineError(
+        pipelineStage,
+        error,
+        true
+      );
+
+      GenerationStorageService.addPipelineError(pipeline.id, pipelineError);
+      GenerationStorageService.updatePipelineStatus(pipeline.id, 'failed');
+
+      setPipelineStage('error');
+      setGenerationStatus('');
+
+      throw error;
+    } finally {
+      setAbortController(null);
+    }
+  };
+
   const simulateAIGeneration = async (userPrompt: string): Promise<DesignElement[]> => {
-    debugLog('Starting AI generation simulation', { prompt: userPrompt });
-    
-    // Simulate different responses based on user input
-    const prompt = userPrompt.toLowerCase();
-    let shapes: any[] = [];
+    debugLog('Legacy simulation - should not be called');
 
     if (prompt.includes('button') || prompt.includes('ui')) {
       shapes = [
@@ -382,73 +585,22 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     return shapes;
   };
 
-  // Fixed pipeline: Create separate elements with guaranteed unique IDs
-  const handleMotionGraphicsGeneration = async (userPrompt: string) => {
-    try {
-      setStatus('processing');
-      debugLog('Starting motion graphics generation pipeline', { prompt: userPrompt });
-      
-      // Stage 1: Generate shape data (simulated for demo)
-      setGenerationStatus('Analyzing your request and generating design structure...');
-      const shapesData = await simulateAIGeneration(userPrompt);
-      
-      debugLog('Generated shapes data', shapesData);
-      
-      if (!Array.isArray(shapesData) || shapesData.length === 0) {
-        throw new Error('No shapes were generated from the AI response');
-      }
-      
-      const shapeCount = shapesData.length;
-      setGenerationStatus(`Creating ${shapeCount} individual design elements with unique IDs...`);
-      
-      // Stage 2: Create individual DesignElements with guaranteed unique IDs
-      const designElements: DesignElement[] = [];
-      
-      for (let i = 0; i < shapesData.length; i++) {
-        const shapeData = shapesData[i];
-        // Add small delay to ensure unique timestamps
-        await new Promise(resolve => setTimeout(resolve, 50)); // Longer delay for unique timestamps
-        const designElement = createUniqueDesignElement(shapeData, i);
-        designElements.push(designElement);
-        
-        debugLog(`Created design element ${i + 1}`, designElement);
-      }
-      
-      debugLog('All design elements created', {
-        count: designElements.length,
-        ids: designElements.map(el => el.id),
-        elements: designElements
-      });
-      
-      // Stage 3: Add elements one by one with proper delays to prevent race conditions
-      setGenerationStatus(`Adding ${shapeCount} elements to canvas...`);
-      
-      // Try batch addition first
-      if (onAddMultipleElements) {
-        debugLog('Adding elements in batch', designElements);
-        onAddMultipleElements(designElements);
-        setGenerationStatus(`Added all ${shapeCount} elements to canvas!`);
-      } else {
-        // Fallback to individual addition
-        debugLog('Adding elements individually to ensure proper canvas state');
-        for (let i = 0; i < designElements.length; i++) {
-          const element = designElements[i];
-          debugLog(`Adding element ${i + 1} individually`, element);
-          onAddElement(element);
-          // Delay to ensure each element is properly added to canvas state
-          await new Promise(resolve => setTimeout(resolve, 500));
-          setGenerationStatus(`Added element ${i + 1} of ${shapeCount}...`);
-        }
-      }
-      
+  const handleCancelGeneration = () => {
+    if (abortController) {
+      abortController.abort();
+      setAbortController(null);
+      setPipelineStage('idle');
       setGenerationStatus('');
+      setIsProcessing(false);
       setStatus('ready');
-      return `✅ Successfully created ${shapeCount} individual design elements! Each element has been added to your canvas as a separate layer and can be edited independently.`;
-      
-    } catch (error) {
-      setStatus('error');
-      debugLog('Motion graphics generation failed', error);
-      throw new Error(`Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+
+      const cancelMessage: Message = {
+        id: `cancel-${Date.now()}`,
+        type: 'ai',
+        content: '⛔ Generation cancelled by user.',
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, cancelMessage]);
     }
   };
 
@@ -476,72 +628,70 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     scrollToBottom();
   };
 
-  // Enhanced AI response handler with proper flow
   const handleAIResponse = async (userMessage: string) => {
     setStatus('processing');
     setIsProcessing(true);
+    setPipelineStage('idle');
+    setValidationStatus(null);
 
     try {
-      // Step 1: Immediately show confirmation message
       const confirmationId = `confirmation-${Date.now()}`;
       const confirmationMessage: Message = {
         id: confirmationId,
         type: 'ai',
-        content: 'I will create the animation you requested with all the provided UI components and details',
+        content: '🚀 Starting AI-powered design generation pipeline...',
         timestamp: new Date(),
         isStreaming: false
       };
-      
+
       setMessages(prev => [...prev, confirmationMessage]);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Step 2: Show AI thinking message
-      const thinkingId = `thinking-${Date.now()}`;
-      setMessages(prev => [...prev, {
-        id: thinkingId,
-        type: 'ai',
-        content: '',
-        timestamp: new Date(),
-        isStreaming: true
-      }]);
+      const result = await handleRealAIPipeline(userMessage);
 
-      // Step 3: Execute motion graphics generation
-      const result = await handleMotionGraphicsGeneration(userMessage);
-      
-      // Step 4: Remove thinking message and show success
-      setMessages(prev => prev.filter(msg => msg.id !== thinkingId));
-      
-      const successId = `success-${Date.now()}`;
-      const successMessage: Message = {
-        id: successId,
+      const resultId = `result-${Date.now()}`;
+      const resultMessage: Message = {
+        id: resultId,
         type: 'ai',
-        content: result,
+        content: result.message,
         timestamp: new Date(),
         isStreaming: false
       };
-      
-      setMessages(prev => [...prev, successMessage]);
-      await streamMessage(successId, result);
-      
+
+      setMessages(prev => [...prev, resultMessage]);
+      await streamMessage(resultId, result.message);
+
     } catch (error) {
-      // Remove thinking message and show error
-      setMessages(prev => prev.filter(msg => msg.id.startsWith('thinking-')));
-      
       const errorId = `error-${Date.now()}`;
+      let errorContent = 'An unexpected error occurred.';
+
+      if (error instanceof Error) {
+        if (error.message.includes('cancelled')) {
+          errorContent = '⛔ Generation was cancelled.';
+        } else if (error.message.includes('401')) {
+          errorContent = '🔑 API Key Error: Invalid or missing OpenAI API key. Please check your configuration.';
+        } else if (error.message.includes('429')) {
+          errorContent = '⌛ Rate Limit: Too many requests. Please wait a moment and try again.';
+        } else {
+          errorContent = `❌ Error: ${error.message}`;
+        }
+      }
+
       const errorMessage: Message = {
         id: errorId,
         type: 'ai',
-        content: `I apologize, but I encountered an error while creating your design: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again with a different request.`,
+        content: errorContent,
         timestamp: new Date(),
         isStreaming: false
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
       await streamMessage(errorId, errorMessage.content);
     }
 
     setIsProcessing(false);
     setStatus('ready');
+    setPipelineStage('idle');
   };
 
   const handleSendMessage = async () => {
@@ -603,23 +753,55 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
     }
   };
 
-  const renderThinkingIndicator = () => (
-    <div className="flex items-center space-x-2 text-gray-400 py-2">
-      <div className="flex items-center space-x-1">
-        <span className="text-sm bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">AI is thinking</span>
-        <div className="flex space-x-1">
-          <div className="w-2 h-2 bg-gradient-to-r from-violet-400 to-pink-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-          <div className="w-2 h-2 bg-gradient-to-r from-violet-400 to-pink-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-          <div className="w-2 h-2 bg-gradient-to-r from-violet-400 to-pink-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+  const renderPipelineStatus = () => {
+    if (pipelineStage === 'validating') {
+      return (
+        <div className="flex items-center space-x-2 py-2">
+          <Loader2 className="w-4 h-4 text-blue-400 animate-spin" />
+          <span className="text-sm text-blue-400">Validating prompt...</span>
         </div>
-      </div>
-      {generationStatus && (
-        <div className="text-xs bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent ml-2">
-          {generationStatus}
+      );
+    }
+
+    if (validationStatus === 'accepted') {
+      return (
+        <div className="flex items-center space-x-2 py-2">
+          <CheckCircle className="w-4 h-4 text-green-400" />
+          <span className="text-sm text-green-400">Prompt Accepted ✓</span>
         </div>
-      )}
-    </div>
-  );
+      );
+    }
+
+    if (validationStatus === 'rejected') {
+      return (
+        <div className="flex items-center space-x-2 py-2">
+          <XCircle className="w-4 h-4 text-red-400" />
+          <span className="text-sm text-red-400">Prompt Rejected ✗</span>
+        </div>
+      );
+    }
+
+    if (pipelineStage === 'high-level' || pipelineStage === 'low-level' || pipelineStage === 'placing') {
+      return (
+        <div className="space-y-2 py-2">
+          <div className="flex items-center space-x-2">
+            <Loader2 className="w-4 h-4 text-violet-400 animate-spin" />
+            <span className="text-sm text-violet-400">{generationStatus}</span>
+          </div>
+          {generationProgress.total > 0 && (
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div
+                className="bg-gradient-to-r from-violet-400 to-pink-400 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${(generationProgress.current / generationProgress.total) * 100}%` }}
+              />
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    return null;
+  };
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-br from-violet-950/30 via-gray-900/50 to-pink-950/30 relative overflow-hidden">
@@ -653,11 +835,20 @@ const AIChatTab: React.FC<AIChatTabProps> = ({
         </div>
 
         {/* Processing Status Bar */}
-        {isProcessing && generationStatus && (
+        {isProcessing && (
           <div className="mt-2 p-2 bg-gradient-to-r from-violet-500/10 to-pink-500/10 border border-violet-500/30 rounded-lg">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 border-2 border-violet-400 border-t-transparent rounded-full animate-spin" />
-              <span className="text-xs bg-gradient-to-r from-violet-400 to-pink-400 bg-clip-text text-transparent">{generationStatus}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                {renderPipelineStatus()}
+              </div>
+              {abortController && (
+                <button
+                  onClick={handleCancelGeneration}
+                  className="px-3 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded transition-colors"
+                >
+                  Cancel
+                </button>
+              )}
             </div>
           </div>
         )}
