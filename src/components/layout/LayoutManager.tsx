@@ -70,6 +70,10 @@ interface LayoutManagerProps {
   // Project Save/Exit
   onSaveProject?: () => Promise<void>;
   onExitToHome?: () => void;
+
+  // Project File Management
+  onSaveProjectFile?: () => void;
+  onLoadProjectFile?: () => void;
 }
 
 const LayoutManager: React.FC<LayoutManagerProps> = (props) => {
@@ -112,7 +116,9 @@ const LayoutManager: React.FC<LayoutManagerProps> = (props) => {
     userId: props.userId,
     isGuest: props.isGuest,
     onSaveProject: props.onSaveProject,
-    onExitToHome: props.onExitToHome
+    onExitToHome: props.onExitToHome,
+    onSaveProjectFile: props.onSaveProjectFile,
+    onLoadProjectFile: props.onLoadProjectFile
   };
 
   const renderLayout = () => {

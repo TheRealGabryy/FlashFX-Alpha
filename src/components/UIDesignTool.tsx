@@ -75,7 +75,25 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
             const project = projects.find((p: any) => p.id === projectId);
             if (project) {
               setProjectName(project.name);
-              if (project.data?.backgroundColor) {
+
+              if (project.data?.projectFileLoaded && project.data?.elements) {
+                const loadedElements = project.data.elements;
+                const loadedCanvas = project.data.canvas;
+
+                if (loadedElements.length > 0) {
+                  pushToHistory({ elements: loadedElements, selectedElements: [] });
+                }
+
+                if (loadedCanvas) {
+                  setZoom(loadedCanvas.zoom || 1);
+                  setPan(loadedCanvas.pan || { x: 0, y: 0 });
+                  setShowGrid(loadedCanvas.grid?.enabled ?? true);
+                  setSnapEnabled(loadedCanvas.grid?.snap ?? true);
+                  if (loadedCanvas.background) {
+                    setBackground(loadedCanvas.background);
+                  }
+                }
+              } else if (project.data?.backgroundColor) {
                 const bgConfig: BackgroundConfig = {
                   enabled: true,
                   layers: [{
@@ -103,7 +121,25 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
 
           if (!error && data) {
             setProjectName(data.name);
-            if (data.data?.backgroundColor) {
+
+            if (data.data?.projectFileLoaded && data.data?.elements) {
+              const loadedElements = data.data.elements;
+              const loadedCanvas = data.data.canvas;
+
+              if (loadedElements.length > 0) {
+                pushToHistory({ elements: loadedElements, selectedElements: [] });
+              }
+
+              if (loadedCanvas) {
+                setZoom(loadedCanvas.zoom || 1);
+                setPan(loadedCanvas.pan || { x: 0, y: 0 });
+                setShowGrid(loadedCanvas.grid?.enabled ?? true);
+                setSnapEnabled(loadedCanvas.grid?.snap ?? true);
+                if (loadedCanvas.background) {
+                  setBackground(loadedCanvas.background);
+                }
+              }
+            } else if (data.data?.backgroundColor) {
               const bgConfig: BackgroundConfig = {
                 enabled: true,
                 layers: [{
@@ -160,6 +196,38 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
     scrollY: pan.y,
     zoom
   };
+
+  const currentCanvas: ProjectCanvas = {
+    width: canvasSize.width,
+    height: canvasSize.height,
+    fps: 30,
+    unit: 'px',
+    background,
+    grid: {
+      enabled: showGrid,
+      size: gridSettings.gridSize,
+      snap: snapEnabled
+    },
+    zoom,
+    pan
+  };
+
+  const handleProjectLoaded = useCallback((newElements: DesignElement[], newCanvas: ProjectCanvas) => {
+    const newState: CanvasState = {
+      elements: newElements,
+      selectedElements: []
+    };
+    pushToHistory(newState);
+
+    setZoom(newCanvas.zoom || 1);
+    setPan(newCanvas.pan || { x: 0, y: 0 });
+    setShowGrid(newCanvas.grid.enabled);
+    setSnapEnabled(newCanvas.grid.snap);
+
+    if (newCanvas.background) {
+      setBackground(newCanvas.background);
+    }
+  }, [pushToHistory]);
 
   const updateCanvas = useCallback((newElements: DesignElement[], newSelectedElements?: string[]) => {
     const newState: CanvasState = {
@@ -379,8 +447,10 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
                 name: projectName,
                 data: {
                   ...p.data,
+                  projectFileLoaded: true,
                   elements: currentState.elements,
                   selectedElements: currentState.selectedElements,
+                  canvas: currentCanvas,
                   background
                 },
                 updated_at: new Date().toISOString()
@@ -396,8 +466,10 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
           .update({
             name: projectName,
             data: {
+              projectFileLoaded: true,
               elements: currentState.elements,
               selectedElements: currentState.selectedElements,
+              canvas: currentCanvas,
               background
             },
             updated_at: new Date().toISOString()
@@ -408,7 +480,7 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
       console.error('Error saving project:', error);
       throw error;
     }
-  }, [projectId, isGuest, user, projectName, currentState.elements, currentState.selectedElements, background]);
+  }, [projectId, isGuest, user, projectName, currentState.elements, currentState.selectedElements, currentCanvas, background]);
 
 
   // Enhanced keyboard shortcuts with shortcut modal
@@ -461,30 +533,38 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
 
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Main Layout Area */}
-      <div className="flex-1">
-        <LayoutManager
-          currentMode={currentMode}
-          isTransitioning={isTransitioning}
-          elements={currentState.elements}
-          selectedElements={currentState.selectedElements}
-          setSelectedElements={setSelectedElements}
-          updateElement={updateElement}
-          deleteElement={deleteElement}
-          duplicateElement={duplicateElement}
-          onAddElement={addElement}
-          zoom={zoom}
-          setZoom={setZoom}
-          pan={pan}
-          setPan={setPan}
-          showGrid={showGrid}
-          setShowGrid={setShowGrid}
-          snapEnabled={snapEnabled}
-          setSnapEnabled={setSnapEnabled}
-          canUndo={canUndo}
-          canRedo={canRedo}
-          onUndo={undo}
+    <ProjectManager
+      elements={currentState.elements}
+      canvas={currentCanvas}
+      userId={user?.id || null}
+      userName={user?.email || null}
+      onProjectLoaded={handleProjectLoaded}
+    >
+      {({ handleSaveClick, handleLoadClick, currentProjectName }) => (
+        <div className="h-full flex flex-col">
+          {/* Main Layout Area */}
+          <div className="flex-1">
+            <LayoutManager
+              currentMode={currentMode}
+              isTransitioning={isTransitioning}
+              elements={currentState.elements}
+              selectedElements={currentState.selectedElements}
+              setSelectedElements={setSelectedElements}
+              updateElement={updateElement}
+              deleteElement={deleteElement}
+              duplicateElement={duplicateElement}
+              onAddElement={addElement}
+              zoom={zoom}
+              setZoom={setZoom}
+              pan={pan}
+              setPan={setPan}
+              showGrid={showGrid}
+              setShowGrid={setShowGrid}
+              snapEnabled={snapEnabled}
+              setSnapEnabled={setSnapEnabled}
+              canUndo={canUndo}
+              canRedo={canRedo}
+              onUndo={undo}
           onRedo={redo}
           onGroup={handleGroup}
           onUngroup={handleUngroup}
@@ -503,10 +583,12 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
           isGuest={isGuest}
           onSaveProject={handleSaveProject}
           onExitToHome={onBackToMain}
-        />
-      </div>
-      
-      <FlashFXAIComponent 
+          onSaveProjectFile={handleSaveClick}
+          onLoadProjectFile={handleLoadClick}
+            />
+          </div>
+
+          <FlashFXAIComponent 
         onAddElement={addElement}
         onAddMultipleElements={addMultipleElements}
         onUpdateElement={updateElement}
@@ -579,9 +661,10 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
         updateGridSettings={updateGridSettings}
         shapeSnapEnabled={snapEnabled}
         onToggleShapeSnap={() => setSnapEnabled(!snapEnabled)}
-      />
-
-    </div>
+          />
+        </div>
+      )}
+    </ProjectManager>
   );
 };
 

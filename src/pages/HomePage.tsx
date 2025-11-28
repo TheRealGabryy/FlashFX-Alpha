@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from '../hooks/useNavigate';
 import { supabase, Project } from '../lib/supabase';
-import { Plus, LogOut, Sparkles, Trash2, ImageIcon } from 'lucide-react';
+import { Plus, LogOut, Sparkles, Trash2, ImageIcon, Upload, Download } from 'lucide-react';
 import NewProjectModal from '../components/modals/NewProjectModal';
 import DeleteProjectModal from '../components/modals/DeleteProjectModal';
+import LoadProjectModal from '../components/modals/LoadProjectModal';
+import { ProjectFileService } from '../services/ProjectFileService';
 
 type LocalProject = {
   id: string;
@@ -27,6 +29,8 @@ export const HomePage: React.FC = () => {
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | LocalProject | null>(null);
+  const [showLoadProjectModal, setShowLoadProjectModal] = useState(false);
+  const [projectFileService] = useState(() => new ProjectFileService());
 
   useEffect(() => {
     if (isGuest || (!user && !authLoading)) {
@@ -202,6 +206,90 @@ export const HomePage: React.FC = () => {
     }
   };
 
+  const handleUploadProject = async (file: File) => {
+    const result = await projectFileService.loadProject(file);
+
+    if (result.success && result.data) {
+      const elements = Object.values(result.data.shapes);
+      const newProject = {
+        name: result.data.manifest.name,
+        data: {
+          projectFileLoaded: true,
+          elements,
+          canvas: result.data.canvas,
+          backgroundColor: result.data.canvas.background?.layers[0]?.colorStops[0]?.color || '#1e293b'
+        }
+      };
+
+      if (isGuest) {
+        const localProject: LocalProject = {
+          ...newProject,
+          id: `guest-${Date.now()}`,
+          thumbnail: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        };
+        const updatedProjects = [localProject, ...(projects as LocalProject[])];
+        setProjects(updatedProjects);
+        saveGuestProjects(updatedProjects);
+        navigate(`/editor?project=${localProject.id}`);
+      } else {
+        try {
+          const { data, error } = await supabase
+            .from('projects')
+            .insert({
+              user_id: user!.id,
+              name: newProject.name,
+              data: newProject.data
+            })
+            .select()
+            .single();
+
+          if (error) throw error;
+          navigate(`/editor?project=${data.id}`);
+        } catch (error) {
+          console.error('Error creating project from upload:', error);
+          alert('Failed to upload project. Please try again.');
+        }
+      }
+    }
+  };
+
+  const handleDownloadProject = async () => {
+    if (!selectedProject) return;
+
+    const projectData = selectedProject.data;
+    if (!projectData?.elements || projectData.elements.length === 0) {
+      alert('This project is empty. Open it in the editor and add some content first.');
+      return;
+    }
+
+    try {
+      const canvas = projectData.canvas || {
+        width: 3840,
+        height: 2160,
+        fps: 30,
+        unit: 'px' as const,
+        grid: { enabled: true, size: 20, snap: true },
+        zoom: 1,
+        pan: { x: 0, y: 0 }
+      };
+
+      const blob = await projectFileService.saveProject({
+        projectName: selectedProject.name,
+        elements: projectData.elements,
+        canvas,
+        userId: user?.id,
+        userName: user?.email
+      });
+
+      projectFileService.downloadProject(blob, selectedProject.name);
+    } catch (error) {
+      console.error('Error downloading project:', error);
+      alert('Failed to download project. Please try again.');
+    }
+  };
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/login');
@@ -254,13 +342,20 @@ export const HomePage: React.FC = () => {
 
       <div className="flex-1 flex overflow-hidden">
         <div className="w-1/3 border-r border-slate-700/50 bg-slate-800/20 flex flex-col">
-          <div className="p-6 border-b border-slate-700/50">
+          <div className="p-6 border-b border-slate-700/50 space-y-3">
             <button
               onClick={() => setShowNewProjectModal(true)}
               className="w-full flex items-center justify-center gap-3 py-4 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl"
             >
               <Plus className="w-5 h-5" />
               NEW PROJECT
+            </button>
+            <button
+              onClick={() => setShowLoadProjectModal(true)}
+              className="w-full flex items-center justify-center gap-3 py-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-slate-500 text-white font-medium rounded-xl transition-all duration-200"
+            >
+              <Upload className="w-5 h-5" />
+              UPLOAD PROJECT
             </button>
           </div>
 
@@ -337,12 +432,21 @@ export const HomePage: React.FC = () => {
                     placeholder="Enter project title..."
                     className="w-full px-6 py-4 bg-slate-700/50 border-2 border-slate-600 hover:border-slate-500 focus:border-amber-500 rounded-xl text-white placeholder-slate-400 focus:outline-none transition-colors text-lg"
                   />
-                  <button
-                    onClick={handleOpenProject}
-                    className="mt-4 w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
-                  >
-                    Open in Editor
-                  </button>
+                  <div className="mt-4 space-y-3">
+                    <button
+                      onClick={handleOpenProject}
+                      className="w-full py-3 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-medium rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                    >
+                      Open in Editor
+                    </button>
+                    <button
+                      onClick={handleDownloadProject}
+                      className="w-full flex items-center justify-center gap-2 py-3 bg-slate-700/50 hover:bg-slate-700 border border-slate-600 hover:border-slate-500 text-white font-medium rounded-lg transition-all duration-200"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download Project
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
@@ -374,6 +478,12 @@ export const HomePage: React.FC = () => {
         }}
         onConfirm={handleConfirmDelete}
         projectName={projectToDelete?.name || ''}
+      />
+
+      <LoadProjectModal
+        isOpen={showLoadProjectModal}
+        onClose={() => setShowLoadProjectModal(false)}
+        onLoad={handleUploadProject}
       />
     </div>
   );
