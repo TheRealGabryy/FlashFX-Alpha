@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, Film, Save, FolderOpen } from 'lucide-react';
+import { Palette, Film, Save, FolderOpen, HelpCircle } from 'lucide-react';
 import { LayoutMode } from '../../hooks/useLayoutMode';
 
 interface LayoutBarProps {
@@ -8,6 +8,7 @@ interface LayoutBarProps {
   isTransitioning: boolean;
   onSaveProject?: () => void;
   onLoadProject?: () => void;
+  onStartTutorial?: () => void;
 }
 
 const LayoutBar: React.FC<LayoutBarProps> = ({
@@ -15,7 +16,8 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
   onModeChange,
   isTransitioning,
   onSaveProject,
-  onLoadProject
+  onLoadProject,
+  onStartTutorial
 }) => {
   return (
     <div
@@ -114,7 +116,19 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
         </button>
       </div>
 
-      <div></div>
+      <div className="flex items-center gap-2">
+        {onStartTutorial && (
+          <button
+            onClick={onStartTutorial}
+            data-tutorial-target="tutorial-button"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
+            title="Start Tutorial"
+          >
+            <HelpCircle className="w-4 h-4" />
+            <span>Tutorial</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };

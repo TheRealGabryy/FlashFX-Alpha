@@ -13,6 +13,8 @@ import GridSettingsPanel from '../../design-tool/GridSettingsPanel';
 import GeneralTimeline from '../../timeline/GeneralTimeline';
 import AnimationTimeline from '../../timeline/AnimationTimeline';
 import ResizableSplitter from '../../timeline/ResizableSplitter';
+import TutorialOverlay from '../../tutorial/TutorialOverlay';
+import { useTutorial } from '../../../contexts/TutorialContext';
 
 interface DesignModeLayoutProps {
   // Canvas state
@@ -122,6 +124,7 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
   onSaveProjectFile,
   onLoadProjectFile
 }) => {
+  const { startTutorial } = useTutorial();
   const [showGridSettings, setShowGridSettings] = useState(false);
   const [isLayersPanelCollapsed, setIsLayersPanelCollapsed] = useState(false);
   const [isPropertiesPanelCollapsed, setIsPropertiesPanelCollapsed] = useState(false);
@@ -307,6 +310,7 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
                 isTransitioning={isTransitioning}
                 onSaveProject={onSaveProjectFile}
                 onLoadProject={onLoadProjectFile}
+                onStartTutorial={startTutorial}
               />
             </div>
           </div>
@@ -364,6 +368,9 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
         shapeSnapEnabled={snapEnabled}
         onToggleShapeSnap={() => setSnapEnabled(!snapEnabled)}
       />
+
+      {/* Tutorial Overlay */}
+      <TutorialOverlay />
     </div>
   );
 };

@@ -9,6 +9,7 @@ import LinePropertiesBar from './design-tool/LinePropertiesBar';
 import EditorSettingsModal from './design-tool/EditorSettingsModal';
 import FlashFXAIComponent from './FlashFX_AI_Component';
 import ProjectManager from './project/ProjectManager';
+import { TutorialProvider } from '../contexts/TutorialContext';
 import { DesignElement } from '../types/design';
 import { BackgroundConfig, createDefaultBackground } from '../types/background';
 import { ProjectCanvas } from '../types/projectFile';
@@ -533,15 +534,16 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
 
 
   return (
-    <ProjectManager
-      elements={currentState.elements}
-      canvas={currentCanvas}
-      userId={user?.id || null}
-      userName={user?.email || null}
-      onProjectLoaded={handleProjectLoaded}
-    >
-      {({ handleSaveClick, handleLoadClick, currentProjectName }) => (
-        <div className="h-full flex flex-col">
+    <TutorialProvider>
+      <ProjectManager
+        elements={currentState.elements}
+        canvas={currentCanvas}
+        userId={user?.id || null}
+        userName={user?.email || null}
+        onProjectLoaded={handleProjectLoaded}
+      >
+        {({ handleSaveClick, handleLoadClick, currentProjectName }) => (
+          <div className="h-full flex flex-col">
           {/* Main Layout Area */}
           <div className="flex-1">
             <LayoutManager
@@ -663,8 +665,9 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
         onToggleShapeSnap={() => setSnapEnabled(!snapEnabled)}
           />
         </div>
-      )}
-    </ProjectManager>
+        )}
+      </ProjectManager>
+    </TutorialProvider>
   );
 };
 

@@ -314,7 +314,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
   }
 
   return (
-    <div className="h-full bg-gray-800/50 backdrop-blur-xl flex flex-col overflow-hidden min-h-0">
+    <div className="h-full bg-gray-800/50 backdrop-blur-xl flex flex-col overflow-hidden min-h-0" data-tutorial-target="layers-panel">
       {/* Tab Navigation */}
       <div className="p-2 border-b border-gray-700/50">
         <div className="flex items-center justify-between mb-2">
@@ -365,6 +365,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
 
           <button
             onClick={() => setActiveTab('ai')}
+            data-tutorial-target="ai-tab"
             className={`flex-1 flex items-center justify-center space-x-1 px-1.5 py-1 rounded font-medium transition-all duration-200 ${
               activeTab === 'ai'
                 ? 'bg-gradient-to-r from-violet-500/20 to-pink-500/20 text-violet-400 border border-violet-400/50'
@@ -377,6 +378,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
 
           <button
             onClick={() => setActiveTab('presets')}
+            data-tutorial-target="presets-tab"
             className={`flex-1 flex items-center justify-center space-x-1 px-1.5 py-1 rounded font-medium transition-all duration-200 ${
               activeTab === 'presets'
                 ? 'bg-yellow-400/20 text-yellow-400 border border-yellow-400/50'

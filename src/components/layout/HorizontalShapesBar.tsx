@@ -287,7 +287,7 @@ const HorizontalShapesBar: React.FC<HorizontalShapesBarProps> = ({
   };
 
   return (
-    <div className="h-12 bg-gray-800/50 backdrop-blur-xl border-b border-gray-700/50 flex items-center justify-between px-4 flex-shrink-0">
+    <div className="h-12 bg-gray-800/50 backdrop-blur-xl border-b border-gray-700/50 flex items-center justify-between px-4 flex-shrink-0" data-tutorial-target="toolbar">
       {/* Left side - Shape tools */}
       <div className="flex items-center space-x-2">
         <div className="text-xs text-gray-400 mr-1">Shapes:</div>
@@ -296,6 +296,7 @@ const HorizontalShapesBar: React.FC<HorizontalShapesBarProps> = ({
           <button
             ref={imageButtonRef}
             onClick={handleMenuToggle}
+            data-tutorial-target="image-button"
             className="w-8 h-8 rounded-md bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400 transition-all duration-200 hover:scale-105 group flex items-center justify-center relative"
             title="Import Images"
           >
@@ -413,6 +414,7 @@ const HorizontalShapesBar: React.FC<HorizontalShapesBarProps> = ({
         
         <button
           onClick={onOpenGridSettings}
+          data-tutorial-target="grid-button"
           className="w-8 h-8 rounded-md bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200 hover:scale-105 flex items-center justify-center"
           title="Grid Settings"
         >
