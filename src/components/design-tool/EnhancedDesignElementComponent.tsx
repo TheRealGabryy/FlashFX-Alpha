@@ -73,9 +73,9 @@ const EnhancedDesignElementComponent: React.FC<EnhancedDesignElementComponentPro
 
   // Generate resize handles
   const getResizeHandles = useCallback((): ResizeHandle[] => {
-    const handleSize = 12; // Increased from 4px to 12px
+    const handleSize = 36; // 3x larger for easier interaction
     const halfHandle = handleSize / 2;
-    
+
     return [
       { position: 'nw', cursor: 'nw-resize', x: -halfHandle, y: -halfHandle },
       { position: 'ne', cursor: 'ne-resize', x: element.width - halfHandle, y: -halfHandle },
@@ -658,11 +658,11 @@ const EnhancedDesignElementComponent: React.FC<EnhancedDesignElementComponentPro
                 position: 'absolute',
                 left: handle.x,
                 top: handle.y,
-                width: 12,
-                height: 12,
+                width: 36,
+                height: 36,
                 backgroundColor: '#FFD700',
-                border: '2px solid #FFA500',
-                borderRadius: '2px',
+                border: '3px solid #FFA500',
+                borderRadius: '4px',
                 cursor: handle.cursor,
                 pointerEvents: 'auto',
                 opacity: isHovered || isSelected ? 1 : 0.7,

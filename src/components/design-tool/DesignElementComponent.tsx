@@ -441,12 +441,13 @@ const DesignElementComponent: React.FC<DesignElementComponentProps> = ({
           <div
             style={{
               position: 'absolute',
-              right: -4,
-              bottom: -4,
-              width: 8,
-              height: 8,
+              right: -12,
+              bottom: -12,
+              width: 24,
+              height: 24,
               backgroundColor: '#FFD700',
-              borderRadius: '50%',
+              border: '2px solid #FFA500',
+              borderRadius: '4px',
               cursor: 'se-resize',
               pointerEvents: 'auto'
             }}
