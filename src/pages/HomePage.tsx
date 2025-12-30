@@ -7,6 +7,8 @@ import NewProjectModal from '../components/modals/NewProjectModal';
 import DeleteProjectModal from '../components/modals/DeleteProjectModal';
 import LoadProjectModal from '../components/modals/LoadProjectModal';
 import { ProjectFileService } from '../services/ProjectFileService';
+import { StorageService } from '../services/StorageService';
+import { StorageIndicator } from '../components/storage/StorageIndicator';
 
 type LocalProject = {
   id: string;
@@ -107,12 +109,22 @@ export const HomePage: React.FC = () => {
       saveGuestProjects(updatedProjects);
     } else {
       try {
+        const projectData = { backgroundColor };
+        const projectSize = StorageService.calculateProjectSize(projectData);
+
+        const storageCheck = await StorageService.canUploadProject(user!.id, projectSize);
+        if (!storageCheck.canUpload) {
+          alert(storageCheck.message || 'Cannot create project: Storage limit exceeded');
+          return;
+        }
+
         const { data, error } = await supabase
           .from('projects')
           .insert({
             user_id: user!.id,
             name: name,
-            data: { backgroundColor },
+            data: projectData,
+            size_bytes: projectSize,
           })
           .select()
           .single();
@@ -235,12 +247,21 @@ export const HomePage: React.FC = () => {
         navigate(`/editor?project=${localProject.id}`);
       } else {
         try {
+          const projectSize = StorageService.calculateProjectSize(newProject.data);
+
+          const storageCheck = await StorageService.canUploadProject(user!.id, projectSize);
+          if (!storageCheck.canUpload) {
+            alert(storageCheck.message || 'Cannot upload project: Storage limit exceeded');
+            return;
+          }
+
           const { data, error } = await supabase
             .from('projects')
             .insert({
               user_id: user!.id,
               name: newProject.name,
-              data: newProject.data
+              data: newProject.data,
+              size_bytes: projectSize,
             })
             .select()
             .single();
@@ -321,6 +342,7 @@ export const HomePage: React.FC = () => {
             </div>
 
             <div className="flex items-center gap-4">
+              {!isGuest && <StorageIndicator variant="compact" />}
               <div className="text-right">
                 <p className="text-sm font-medium text-white">
                   {displayName}
@@ -328,13 +350,22 @@ export const HomePage: React.FC = () => {
                 </p>
                 <p className="text-xs text-slate-400">{projects.length} projects</p>
               </div>
-              <button
-                onClick={handleSignOut}
-                className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
-              >
-                <LogOut className="w-4 h-4" />
-                {isGuest ? 'Exit Guest' : 'Sign Out'}
-              </button>
+              {isGuest ? (
+                <button
+                  onClick={() => navigate('/auth')}
+                  className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  Sign In
+                </button>
+              ) : (
+                <button
+                  onClick={handleSignOut}
+                  className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                >
+                  <LogOut className="w-4 h-4" />
+                  Sign Out
+                </button>
+              )}
             </div>
           </div>
         </div>

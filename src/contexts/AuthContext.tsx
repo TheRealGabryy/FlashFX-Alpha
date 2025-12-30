@@ -11,7 +11,8 @@ type AuthContextType = {
   signInWithGoogle: () => Promise<{ error: AuthError | null }>;
   signInWithGithub: () => Promise<{ error: AuthError | null }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUpWithEmail: (email: string, password: string, fullName: string) => Promise<{ error: AuthError | null }>;
+  signInWithUsername: (username: string, password: string) => Promise<{ error: AuthError | null }>;
+  signUpWithEmail: (email: string, password: string, fullName: string, username: string) => Promise<{ error: AuthError | null }>;
   continueAsGuest: () => void;
   signOut: () => Promise<void>;
 };
@@ -81,14 +82,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { error };
   };
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string) => {
+  const signInWithUsername = async (username: string, password: string) => {
     try {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .ilike('username', username)
+        .maybeSingle();
+
+      if (profileError || !profile) {
+        return { error: { message: 'Invalid username or password', name: 'AuthError', status: 400 } as AuthError };
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: profile.email,
+        password,
+      });
+
+      return { error };
+    } catch (err) {
+      console.error('Sign in with username exception:', err);
+      return { error: err as AuthError };
+    }
+  };
+
+  const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+    try {
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('username')
+        .ilike('username', username)
+        .maybeSingle();
+
+      if (existingProfile) {
+        return {
+          error: { message: 'Username already taken', name: 'AuthError', status: 400 } as AuthError,
+        };
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: {
             full_name: fullName,
+            username: username,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -139,6 +177,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signInWithGoogle,
     signInWithGithub,
     signInWithEmail,
+    signInWithUsername,
     signUpWithEmail,
     continueAsGuest,
     signOut,

@@ -1,5 +1,44 @@
 export type PasswordStrength = 'weak' | 'medium' | 'strong';
 
+export interface PasswordValidation {
+  isValid: boolean;
+  message?: string;
+}
+
+export const validatePasswordStrength = (password: string): PasswordValidation => {
+  if (!password || password.length < 8) {
+    return {
+      isValid: false,
+      message: 'Password must be at least 8 characters long',
+    };
+  }
+
+  if (!/[a-z]/.test(password)) {
+    return {
+      isValid: false,
+      message: 'Password must contain at least one lowercase letter',
+    };
+  }
+
+  if (!/[A-Z]/.test(password)) {
+    return {
+      isValid: false,
+      message: 'Password must contain at least one uppercase letter',
+    };
+  }
+
+  if (!/[0-9]/.test(password)) {
+    return {
+      isValid: false,
+      message: 'Password must contain at least one number',
+    };
+  }
+
+  return {
+    isValid: true,
+  };
+};
+
 export const checkPasswordStrength = (password: string): PasswordStrength => {
   if (!password || password.length < 6) {
     return 'weak';

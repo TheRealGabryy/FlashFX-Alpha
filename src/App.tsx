@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AuthProvider } from './contexts/AuthContext';
-import { LoginPage } from './pages/LoginPage';
+import { AuthPage } from './pages/AuthPage';
 import { HomePage } from './pages/HomePage';
 import UIDesignTool from './components/UIDesignTool';
 
@@ -26,7 +26,9 @@ function App() {
   };
 
   const renderPage = () => {
-    if (currentPath === '/home' || currentPath === '') {
+    if (currentPath === '/auth') {
+      return <AuthPage />;
+    } else if (currentPath === '/home' || currentPath === '') {
       return <HomePage />;
     } else if (currentPath.startsWith('/editor')) {
       const params = new URLSearchParams(currentPath.split('?')[1] || '');

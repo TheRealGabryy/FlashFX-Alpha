@@ -25,6 +25,9 @@ export type Profile = {
   email: string;
   full_name: string | null;
   avatar_url: string | null;
+  username: string | null;
+  storage_used: number;
+  storage_limit: number;
   created_at: string;
   updated_at: string;
 };
@@ -36,6 +39,7 @@ export type Project = {
   description: string | null;
   data: Record<string, any>;
   thumbnail: string | null;
+  size_bytes: number;
   created_at: string;
   updated_at: string;
 };
