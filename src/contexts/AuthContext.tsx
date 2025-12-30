@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase, Profile } from '../lib/supabase';
+import { AvatarService } from '../services/AvatarService';
 
 type AuthContextType = {
   user: User | null;
@@ -12,7 +13,7 @@ type AuthContextType = {
   signInWithGithub: () => Promise<{ error: AuthError | null }>;
   signInWithEmail: (email: string, password: string) => Promise<{ error: AuthError | null }>;
   signInWithUsername: (username: string, password: string) => Promise<{ error: AuthError | null }>;
-  signUpWithEmail: (email: string, password: string, fullName: string, username: string) => Promise<{ error: AuthError | null }>;
+  signUpWithEmail: (email: string, password: string, fullName: string, username: string, avatarUrl?: string, tempPath?: string) => Promise<{ error: AuthError | null; userId?: string }>;
   continueAsGuest: () => void;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
@@ -209,7 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+  const signUpWithEmail = async (email: string, password: string, fullName: string, username: string, avatarUrl?: string, tempPath?: string) => {
     console.log('[Auth] Starting signup process for:', email);
     const signupStartTime = Date.now();
 
@@ -238,6 +239,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           data: {
             full_name: fullName,
             username: username,
+            avatar_url: avatarUrl || null,
           },
           emailRedirectTo: `${window.location.origin}/`,
         },
@@ -257,6 +259,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('[Auth] User created:', data.user.id);
 
+      // Move avatar from temp to user folder if provided
+      if (avatarUrl && tempPath) {
+        console.log('[Auth] Moving avatar from temp to user folder');
+        const { url: finalAvatarUrl, error: moveError } = await AvatarService.moveTemporaryAvatar(tempPath, data.user.id);
+
+        if (moveError) {
+          console.error('[Auth] Failed to move avatar:', moveError);
+        } else if (finalAvatarUrl) {
+          console.log('[Auth] Avatar moved successfully, updating profile');
+
+          await supabase
+            .from('profiles')
+            .update({ avatar_url: finalAvatarUrl })
+            .eq('id', data.user.id);
+        }
+      }
+
       // If there's a session, verify profile was created
       if (data.session) {
         console.log('[Auth] Session created, verifying profile...');
@@ -265,7 +284,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (!profileCreated) {
           console.error('[Auth] Profile verification failed after signup');
-          // Don't fail the signup, but log the issue
           console.warn('[Auth] User may need to refresh or sign in again');
         } else {
           console.log('[Auth] Profile verified successfully');
@@ -277,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[Auth] User created but needs email confirmation');
       }
 
-      return { error: null };
+      return { error: null, userId: data.user.id };
     } catch (err) {
       console.error('[Auth] Signup exception:', err);
       return { error: err as AuthError };

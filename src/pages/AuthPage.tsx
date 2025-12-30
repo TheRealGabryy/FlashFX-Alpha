@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from '../hooks/useNavigate';
-import { Sparkles, Mail, Eye, EyeOff, User, Lock, CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Sparkles, Mail, Eye, EyeOff, User, Lock, CheckCircle, XCircle, Loader2, Upload, Camera } from 'lucide-react';
 import { validatePasswordStrength } from '../utils/passwordStrength';
 import { supabase } from '../lib/supabase';
+import { AvatarService } from '../services/AvatarService';
 
 type TabType = 'signin' | 'signup';
 
@@ -27,6 +28,9 @@ export const AuthPage: React.FC = () => {
   const [signUpFullName, setSignUpFullName] = useState('');
   const [signUpError, setSignUpError] = useState('');
   const [signUpLoading, setSignUpLoading] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
 
   const [usernameStatus, setUsernameStatus] = useState<UsernameStatus>('idle');
   const [usernameCheckTimeout, setUsernameCheckTimeout] = useState<NodeJS.Timeout | null>(null);
@@ -127,6 +131,25 @@ export const AuthPage: React.FC = () => {
     }
   };
 
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const validation = AvatarService.validateFile(file);
+    if (!validation.valid) {
+      setSignUpError(validation.error || 'Invalid file');
+      return;
+    }
+
+    setAvatarFile(file);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setAvatarPreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+    setSignUpError('');
+  };
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError('');
@@ -135,6 +158,11 @@ export const AuthPage: React.FC = () => {
 
     if (!signUpEmail || !signUpPassword || !signUpUsername || !signUpFullName) {
       setSignUpError('All fields are required');
+      return;
+    }
+
+    if (!avatarFile) {
+      setSignUpError('Please upload a profile picture');
       return;
     }
 
@@ -166,10 +194,24 @@ export const AuthPage: React.FC = () => {
     }
 
     setSignUpLoading(true);
+    setAvatarUploading(true);
 
     try {
-      console.log('[AuthPage] Calling signUpWithEmail');
-      const { error } = await signUpWithEmail(signUpEmail, signUpPassword, signUpFullName, signUpUsername);
+      console.log('[AuthPage] Uploading avatar temporarily');
+      const { url: tempAvatarUrl, path: tempPath, error: uploadError } = await AvatarService.uploadAvatarTemporary(avatarFile);
+
+      if (uploadError || !tempAvatarUrl || !tempPath) {
+        console.error('[AuthPage] Avatar upload failed:', uploadError);
+        setSignUpError(uploadError || 'Failed to upload avatar');
+        setSignUpLoading(false);
+        setAvatarUploading(false);
+        return;
+      }
+
+      console.log('[AuthPage] Avatar uploaded temporarily, creating user account');
+
+      console.log('[AuthPage] Calling signUpWithEmail with avatar URL');
+      const { error, userId } = await signUpWithEmail(signUpEmail, signUpPassword, signUpFullName, signUpUsername, tempAvatarUrl, tempPath);
 
       if (error) {
         console.error('[AuthPage] Signup failed:', error);
@@ -183,6 +225,7 @@ export const AuthPage: React.FC = () => {
       setSignUpError('An unexpected error occurred');
     } finally {
       setSignUpLoading(false);
+      setAvatarUploading(false);
     }
   };
 
@@ -387,6 +430,41 @@ export const AuthPage: React.FC = () => {
                     placeholder="your.email@example.com"
                     required
                   />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Profile Picture</label>
+                <div className="flex items-center gap-4">
+                  <div className="flex-shrink-0">
+                    <div className="w-24 h-24 rounded-full bg-slate-800/50 border-2 border-slate-600 flex items-center justify-center overflow-hidden">
+                      {avatarPreview ? (
+                        <img src={avatarPreview} alt="Avatar preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <Camera className="w-10 h-10 text-slate-400" />
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <label htmlFor="avatar-upload" className="cursor-pointer">
+                      <div className="flex items-center gap-2 px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-lg hover:border-amber-500 hover:bg-slate-700/50 transition-all duration-200 text-white">
+                        <Upload className="w-5 h-5 text-slate-400" />
+                        <span className="text-sm font-medium">
+                          {avatarFile ? avatarFile.name : 'Choose a photo'}
+                        </span>
+                      </div>
+                      <input
+                        id="avatar-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                    </label>
+                    <p className="mt-1 text-xs text-slate-400">
+                      JPG, PNG, GIF or WebP. Max 5MB.
+                    </p>
+                  </div>
                 </div>
               </div>
 
