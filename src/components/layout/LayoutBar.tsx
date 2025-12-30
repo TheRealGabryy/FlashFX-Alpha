@@ -87,25 +87,25 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
         </button>
 
         <button
-          onClick={() => onModeChange('video')}
+          onClick={() => onModeChange('edit')}
           disabled={isTransitioning}
           className={`
             flex items-center justify-center gap-2 px-6 py-2 rounded-md font-medium text-sm
             transition-all duration-200
             ${isTransitioning ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           `}
-          style={currentMode === 'video'
+          style={currentMode === 'edit'
             ? { backgroundColor: 'rgba(55, 65, 81, 0.9)', color: '#ffffff' }
             : { color: '#9CA3AF' }
           }
           onMouseEnter={(e) => {
-            if (currentMode !== 'video' && !isTransitioning) {
+            if (currentMode !== 'edit' && !isTransitioning) {
               e.currentTarget.style.backgroundColor = 'rgba(55, 65, 81, 0.4)';
               e.currentTarget.style.color = '#ffffff';
             }
           }}
           onMouseLeave={(e) => {
-            if (currentMode !== 'video') {
+            if (currentMode !== 'edit') {
               e.currentTarget.style.backgroundColor = 'transparent';
               e.currentTarget.style.color = '#9CA3AF';
             }

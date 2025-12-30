@@ -83,9 +83,6 @@ export interface DesignElement {
     width: number;
     height: number;
   };
-
-  // Video/Clip properties (for video editing mode)
-  clipProperties?: ClipProperties;
 }
 
 export type BlendMode =
@@ -219,49 +216,4 @@ export interface CanvasState {
   pan: { x: number; y: number };
   showGrid: boolean;
   selectedTool: string;
-}
-
-export interface ClipProperties {
-  startTime: number;
-  duration: number;
-  endTime: number;
-  trackIndex: number;
-  locked: boolean;
-  muted: boolean;
-  color?: string;
-  speed: number;
-  fadeIn?: number;
-  fadeOut?: number;
-  animations?: ClipAnimation[];
-}
-
-export interface ClipAnimation {
-  id: string;
-  property: 'x' | 'y' | 'rotation' | 'scale' | 'opacity' | 'width' | 'height';
-  keyframes: ClipKeyframe[];
-  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
-}
-
-export interface ClipKeyframe {
-  time: number;
-  value: number;
-  easing?: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out';
-}
-
-export interface VideoTrack {
-  id: string;
-  name: string;
-  elementId: string;
-  visible: boolean;
-  locked: boolean;
-  height: number;
-}
-
-export interface VideoTimeline {
-  duration: number;
-  currentTime: number;
-  fps: number;
-  tracks: VideoTrack[];
-  isPlaying: boolean;
-  loop: boolean;
 }

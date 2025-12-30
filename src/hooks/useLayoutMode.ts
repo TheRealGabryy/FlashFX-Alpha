@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 
-export type LayoutMode = 'design' | 'video';
+export type LayoutMode = 'design' | 'edit';
 
 export interface LayoutModeState {
   currentMode: LayoutMode;
