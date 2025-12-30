@@ -12,20 +12,26 @@ const SnapGuides: React.FC<SnapGuidesProps> = ({ guides, canvasSize, zoom, pan }
   return (
     <div className="absolute inset-0 pointer-events-none z-40">
       {guides.map((guide) => {
+        const isYellowGuide = guide.color === '#FFD700';
+        const lineWidth = isYellowGuide ? 3 : 2;
+
         if (guide.type === 'vertical') {
           return (
             <div
               key={guide.id}
-              className="absolute animate-pulse"
+              className="absolute"
               style={{
-                left: guide.position * zoom + pan.x,
+                left: guide.position,
                 top: 0,
-                width: '1px',
+                width: `${lineWidth}px`,
                 height: '100%',
                 backgroundColor: guide.color,
-                boxShadow: `0 0 4px ${guide.color}`,
-                opacity: 0.8,
-                transform: 'translateX(-0.5px)'
+                boxShadow: isYellowGuide
+                  ? `0 0 12px 3px ${guide.color}, 0 0 20px 6px ${guide.color}, 0 0 30px 9px rgba(255, 215, 0, 0.3)`
+                  : `0 0 8px 2px ${guide.color}, 0 0 16px 4px ${guide.color}`,
+                opacity: 1,
+                transform: `translateX(-${lineWidth / 2}px)`,
+                animation: 'snapPulse 0.8s ease-in-out infinite'
               }}
             />
           );
@@ -33,21 +39,36 @@ const SnapGuides: React.FC<SnapGuidesProps> = ({ guides, canvasSize, zoom, pan }
           return (
             <div
               key={guide.id}
-              className="absolute animate-pulse"
+              className="absolute"
               style={{
                 left: 0,
-                top: guide.position * zoom + pan.y,
+                top: guide.position,
                 width: '100%',
-                height: '1px',
+                height: `${lineWidth}px`,
                 backgroundColor: guide.color,
-                boxShadow: `0 0 4px ${guide.color}`,
-                opacity: 0.8,
-                transform: 'translateY(-0.5px)'
+                boxShadow: isYellowGuide
+                  ? `0 0 12px 3px ${guide.color}, 0 0 20px 6px ${guide.color}, 0 0 30px 9px rgba(255, 215, 0, 0.3)`
+                  : `0 0 8px 2px ${guide.color}, 0 0 16px 4px ${guide.color}`,
+                opacity: 1,
+                transform: `translateY(-${lineWidth / 2}px)`,
+                animation: 'snapPulse 0.8s ease-in-out infinite'
               }}
             />
           );
         }
       })}
+      <style>{`
+        @keyframes snapPulse {
+          0%, 100% {
+            opacity: 1;
+            filter: brightness(1);
+          }
+          50% {
+            opacity: 0.7;
+            filter: brightness(1.3);
+          }
+        }
+      `}</style>
     </div>
   );
 };
