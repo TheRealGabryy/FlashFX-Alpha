@@ -13,9 +13,9 @@ export const supabase = createClient(
   supabaseAnonKey || 'placeholder',
   {
     auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
     },
   }
 );
@@ -23,11 +23,7 @@ export const supabase = createClient(
 export type Profile = {
   id: string;
   email: string;
-  full_name: string | null;
-  avatar_url: string | null;
   username: string | null;
-  storage_used: number;
-  storage_limit: number;
   created_at: string;
   updated_at: string;
 };
