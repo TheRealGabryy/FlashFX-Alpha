@@ -1,11 +1,12 @@
 import React, { useRef, useState } from 'react';
-import { Square, Circle, Type, Smartphone, MessageCircle, ZoomIn, ZoomOut, Grid2x2 as Grid, Undo2, Redo2, Download, Magnet, FileDown, Clock, Plus, Image, Settings, Upload, FileType } from 'lucide-react';
+import { Square, Circle, Type, Smartphone, MessageCircle, ZoomIn, ZoomOut, Grid2x2 as Grid, Undo2, Redo2, Download, Magnet, FileDown, Clock, Plus, Image, Settings, Upload, FileType, Minus } from 'lucide-react';
 import { DesignElement } from '../../types/design';
 import ImageImportMenu from '../image/ImageImportMenu';
 import GoogleImageSearchModal from '../image/GoogleImageSearchModal';
 import DalleGenerateModal from '../image/DalleGenerateModal';
 import { getDefaultImageFilters } from '../../utils/imageFilters';
 import { GridSettings } from '../../hooks/useGridSystem';
+import { Tooltip } from '../common/Tooltip';
 
 interface ToolbarProps {
   onAddElement: (element: DesignElement) => void;
@@ -244,6 +245,54 @@ const Toolbar: React.FC<ToolbarProps> = ({
     onAddElement(element);
   };
 
+  const createLine = () => {
+    const element: DesignElement = {
+      id: Date.now().toString(),
+      type: 'line',
+      name: 'Line',
+      x: 500,
+      y: 500,
+      width: 200,
+      height: 0,
+      rotation: 0,
+      opacity: 1,
+      locked: false,
+      visible: true,
+      fill: 'transparent',
+      stroke: '#60A5FA',
+      strokeWidth: 3,
+      borderRadius: 0,
+      shadow: {
+        blur: 0,
+        color: 'transparent',
+        x: 0,
+        y: 0
+      },
+      lineType: 'line',
+      points: [
+        { x: 0, y: 0 },
+        { x: 200, y: 0 }
+      ],
+      arrowStart: false,
+      arrowEnd: false,
+      arrowheadType: 'triangle',
+      arrowheadSize: 12,
+      lineCap: 'round',
+      lineJoin: 'round',
+      dashArray: [],
+      smoothing: 0
+    };
+    onAddElement(element);
+  };
+
+  const handleZoomIn = () => {
+    setZoom(Math.min(3, zoom + 0.05));
+  };
+
+  const handleZoomOut = () => {
+    setZoom(Math.max(0.25, zoom - 0.05));
+  };
+
   const handleMenuToggle = () => {
     setShowImageMenu(!showImageMenu);
   };
@@ -441,13 +490,64 @@ const Toolbar: React.FC<ToolbarProps> = ({
   };
 
   const tools = [
-    { icon: Plus, label: 'Import Image', action: handleMenuToggle, special: true, ref: imageButtonRef },
-    { icon: Square, label: 'Rectangle', action: createRectangle },
-    { icon: Circle, label: 'Circle', action: createCircle },
-    { icon: Type, label: 'Text', action: createText },
-    { icon: MessageCircle, label: 'Button', action: createButton },
-    { icon: MessageCircle, label: 'Chat Bubble', action: createChatBubble },
-    { icon: Smartphone, label: 'Chat Frame', action: createChatFrame }
+    {
+      icon: Plus,
+      label: 'Import Image',
+      shortcut: '',
+      description: 'Upload images from your computer, search online, or generate with AI',
+      action: handleMenuToggle,
+      special: true,
+      ref: imageButtonRef
+    },
+    {
+      icon: Square,
+      label: 'Rectangle',
+      shortcut: 'Q',
+      description: 'Create a rectangular shape with customizable size, color, border radius, and shadow effects',
+      action: createRectangle
+    },
+    {
+      icon: Circle,
+      label: 'Circle',
+      shortcut: 'W',
+      description: 'Add a circular shape with adjustable fill, stroke, and shadow properties',
+      action: createCircle
+    },
+    {
+      icon: Type,
+      label: 'Text',
+      shortcut: 'E',
+      description: 'Insert text with customizable font, size, color, alignment, and styling options',
+      action: createText
+    },
+    {
+      icon: MessageCircle,
+      label: 'Button',
+      shortcut: 'R',
+      description: 'Create an interactive button element with text, styling, and hover effects',
+      action: createButton
+    },
+    {
+      icon: MessageCircle,
+      label: 'Chat Bubble',
+      shortcut: 'T',
+      description: 'Add a chat message bubble for creating messaging interfaces and conversations',
+      action: createChatBubble
+    },
+    {
+      icon: Smartphone,
+      label: 'Chat Frame',
+      shortcut: 'Y',
+      description: 'Insert a mobile device frame perfect for showcasing chat interfaces',
+      action: createChatFrame
+    },
+    {
+      icon: Minus,
+      label: 'Line',
+      shortcut: 'U',
+      description: 'Draw straight or curved lines with arrows, dashes, and custom stroke styles',
+      action: createLine
+    }
   ];
 
   return (
@@ -455,25 +555,40 @@ const Toolbar: React.FC<ToolbarProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <div className="text-sm text-gray-400 mr-4">Tools:</div>
-          {tools.map((tool, index) => (
-            <button
-              key={index}
-              ref={(tool as any).ref}
-              onClick={tool.action}
-              className={`p-2 rounded-lg transition-all duration-200 hover:scale-105 group relative ${
-                (tool as any).special
-                  ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400'
-                  : 'bg-gray-700/50 hover:bg-gray-600/50'
-              }`}
-              title={tool.label}
-            >
-              <tool.icon className={`w-5 h-5 transition-all duration-300 ${
-                (tool as any).special
-                  ? `text-gray-900 ${showImageMenu ? 'rotate-45' : 'rotate-0'}`
-                  : 'text-gray-300 group-hover:text-yellow-400'
-              }`} />
-            </button>
-          ))}
+          {tools.map((tool, index) => {
+            const button = (
+              <button
+                key={index}
+                ref={(tool as any).ref}
+                onClick={tool.action}
+                className={`p-2 rounded-lg transition-all duration-200 hover:scale-105 group relative ${
+                  (tool as any).special
+                    ? 'bg-gradient-to-r from-yellow-400 to-orange-500 hover:from-yellow-300 hover:to-orange-400'
+                    : 'bg-gray-700/50 hover:bg-gray-600/50'
+                }`}
+              >
+                <tool.icon className={`w-5 h-5 transition-all duration-300 ${
+                  (tool as any).special
+                    ? `text-gray-900 ${showImageMenu ? 'rotate-45' : 'rotate-0'}`
+                    : 'text-gray-300 group-hover:text-yellow-400'
+                }`} />
+              </button>
+            );
+
+            if (tool.shortcut || tool.description) {
+              return (
+                <Tooltip
+                  key={index}
+                  title={`${tool.label}${tool.shortcut ? ` (${tool.shortcut})` : ''}`}
+                  description={tool.description}
+                >
+                  {button}
+                </Tooltip>
+              );
+            }
+
+            return button;
+          })}
 
           {/* Image Import Menu */}
           <ImageImportMenu
@@ -527,25 +642,33 @@ const Toolbar: React.FC<ToolbarProps> = ({
           <div className="w-px h-6 bg-gray-600 mx-2"></div>
 
           {/* Zoom Controls */}
-          <button
-            onClick={() => setZoom(Math.max(0.25, zoom - 0.25))}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200"
-            title="Zoom Out"
+          <Tooltip
+            title="Zoom Out (-)"
+            description="Decrease canvas zoom by 5%"
           >
-            <ZoomOut className="w-5 h-5 text-gray-300" />
-          </button>
-          
+            <button
+              onClick={handleZoomOut}
+              className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200"
+            >
+              <ZoomOut className="w-5 h-5 text-gray-300" />
+            </button>
+          </Tooltip>
+
           <span className="text-sm text-gray-400 px-2 min-w-[60px] text-center">
             {Math.round(zoom * 100)}%
           </span>
-          
-          <button
-            onClick={() => setZoom(Math.min(3, zoom + 0.25))}
-            className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200"
-            title="Zoom In"
+
+          <Tooltip
+            title="Zoom In (+)"
+            description="Increase canvas zoom by 5%"
           >
-            <ZoomIn className="w-5 h-5 text-gray-300" />
-          </button>
+            <button
+              onClick={handleZoomIn}
+              className="p-2 rounded-lg bg-gray-700/50 hover:bg-gray-600/50 transition-all duration-200"
+            >
+              <ZoomIn className="w-5 h-5 text-gray-300" />
+            </button>
+          </Tooltip>
 
           <div className="w-px h-6 bg-gray-600 mx-2"></div>
 

@@ -18,6 +18,8 @@ interface GlobalKeyboardShortcutsProps {
   gridEnabled: boolean;
   toggleGrid: () => void;
   onNudge: (direction: 'up' | 'down' | 'left' | 'right', amount: number) => void;
+  zoom?: number;
+  setZoom?: (zoom: number) => void;
 }
 
 export const useGlobalKeyboardShortcuts = ({
@@ -26,7 +28,6 @@ export const useGlobalKeyboardShortcuts = ({
   elements,
   setSelectedElements,
   updateElement,
-  deleteElement,
   duplicateElement,
   onGroup,
   onUngroup,
@@ -37,6 +38,8 @@ export const useGlobalKeyboardShortcuts = ({
   gridEnabled,
   toggleGrid,
   onNudge,
+  zoom,
+  setZoom,
 }: GlobalKeyboardShortcutsProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -72,6 +75,73 @@ export const useGlobalKeyboardShortcuts = ({
       lineJoin: 'round',
       dashArray: [],
       smoothing: 0
+    });
+    onAddElement(element);
+    setSelectedElements([element.id]);
+  }, [onAddElement, canvasSize, viewport, setSelectedElements]);
+
+  const createButton = useCallback(() => {
+    const element = createShapeAtCenter('button', canvasSize, viewport, {
+      name: 'Button',
+      fill: '#FFD700',
+      stroke: '#FFA500',
+      strokeWidth: 2,
+      borderRadius: 12,
+      text: 'Click Me',
+      fontSize: 16,
+      fontWeight: '600',
+      textAlign: 'center',
+      textColor: '#000000',
+      shadow: {
+        blur: 12,
+        color: 'rgba(255, 215, 0, 0.4)',
+        x: 0,
+        y: 4
+      }
+    });
+    onAddElement(element);
+    setSelectedElements([element.id]);
+  }, [onAddElement, canvasSize, viewport, setSelectedElements]);
+
+  const createChatBubble = useCallback(() => {
+    const element = createShapeAtCenter('chat-bubble', canvasSize, viewport, {
+      name: 'Chat Bubble',
+      width: 200,
+      height: 60,
+      fill: '#1F2937',
+      stroke: '#374151',
+      strokeWidth: 1,
+      borderRadius: 18,
+      text: 'Hello! How are you?',
+      fontSize: 14,
+      textAlign: 'left',
+      textColor: '#FFFFFF',
+      shadow: {
+        blur: 8,
+        color: 'rgba(0, 0, 0, 0.3)',
+        x: 0,
+        y: 2
+      }
+    });
+    onAddElement(element);
+    setSelectedElements([element.id]);
+  }, [onAddElement, canvasSize, viewport, setSelectedElements]);
+
+  const createChatFrame = useCallback(() => {
+    const element = createShapeAtCenter('chat-frame', canvasSize, viewport, {
+      name: 'Chat Frame',
+      width: 320,
+      height: 568,
+      fill: '#000000',
+      stroke: '#374151',
+      strokeWidth: 2,
+      borderRadius: 36,
+      shadow: {
+        blur: 20,
+        color: 'rgba(0, 0, 0, 0.5)',
+        x: 0,
+        y: 8
+      }
     });
     onAddElement(element);
     setSelectedElements([element.id]);
@@ -115,15 +185,20 @@ export const useGlobalKeyboardShortcuts = ({
     // Prevent default for our custom shortcuts
     const shouldPreventDefault = () => {
       switch (key.toLowerCase()) {
+        case 'q':
+        case 'w':
+        case 'e':
         case 'r':
-        case 'o':
-        case 'l':
-        case 'a':
         case 't':
+        case 'y':
+        case 'u':
         case 'i':
         case 'g':
         case 'escape':
         case ' ':
+        case '+':
+        case '=':
+        case '-':
           return !isModifierPressed;
         case ';':
           return isModifierPressed;
@@ -146,20 +221,26 @@ export const useGlobalKeyboardShortcuts = ({
     // Shape Creation Shortcuts (only when no modifiers are pressed)
     if (!isModifierPressed && !shiftKey && !altKey) {
       switch (key.toLowerCase()) {
-        case 'r':
+        case 'q':
           createShape('rectangle');
           return;
-        case 'o':
+        case 'w':
           createShape('circle');
           return;
-        case 'l':
-          createLine('line');
+        case 'e':
+          createShape('text');
           return;
-        case 'a':
-          createLine('arrow');
+        case 'r':
+          createButton();
           return;
         case 't':
-          createShape('text');
+          createChatBubble();
+          return;
+        case 'y':
+          createChatFrame();
+          return;
+        case 'u':
+          createLine('line');
           return;
         case 'i':
           handleImageUpload();
@@ -171,6 +252,17 @@ export const useGlobalKeyboardShortcuts = ({
           setSelectedElements([]);
           return;
         case ' ':
+          return;
+        case '+':
+        case '=':
+          if (setZoom && zoom) {
+            setZoom(Math.min(3, zoom + 0.05));
+          }
+          return;
+        case '-':
+          if (setZoom && zoom) {
+            setZoom(Math.max(0.25, zoom - 0.05));
+          }
           return;
       }
     }
@@ -219,6 +311,9 @@ export const useGlobalKeyboardShortcuts = ({
     isTypingInInput,
     createShape,
     createLine,
+    createButton,
+    createChatBubble,
+    createChatFrame,
     handleImageUpload,
     toggleGrid,
     setSelectedElements,
@@ -228,7 +323,9 @@ export const useGlobalKeyboardShortcuts = ({
     onUngroup,
     snapEnabled,
     setSnapEnabled,
-    onNudge
+    onNudge,
+    zoom,
+    setZoom
   ]);
 
   useEffect(() => {

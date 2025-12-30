@@ -514,7 +514,9 @@ const UIDesignTool: React.FC<UIDesignToolProps> = ({ onBackToMain, editorMode = 
     setSnapEnabled,
     gridEnabled: gridSettings.enabled,
     toggleGrid,
-    onNudge: handleNudge
+    onNudge: handleNudge,
+    zoom,
+    setZoom
   });
   
   useKeyboardShortcuts({

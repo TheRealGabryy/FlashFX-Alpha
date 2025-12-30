@@ -293,14 +293,110 @@ const EditorSettingsModal: React.FC<EditorSettingsModalProps> = ({
     </div>
   );
 
-  const renderShortcuts = () => (
-    <div className="flex items-center justify-center h-full py-20">
-      <div className="text-center text-gray-500">
-        <Keyboard className="w-12 h-12 mx-auto mb-4 text-gray-600" />
-        <p className="text-sm">Shortcuts will appear here</p>
+  const renderShortcuts = () => {
+    const shortcutCategories = [
+      {
+        title: 'Shape Creation',
+        shortcuts: [
+          { key: 'Q', description: 'Add Rectangle' },
+          { key: 'W', description: 'Add Circle' },
+          { key: 'E', description: 'Add Text' },
+          { key: 'R', description: 'Add Button' },
+          { key: 'T', description: 'Add Chat Bubble' },
+          { key: 'Y', description: 'Add Chat Frame' },
+          { key: 'U', description: 'Add Line' },
+        ]
+      },
+      {
+        title: 'View Controls',
+        shortcuts: [
+          { key: '+', description: 'Zoom In (5%)' },
+          { key: '-', description: 'Zoom Out (5%)' },
+          { key: 'G', description: 'Toggle Grid' },
+        ]
+      },
+      {
+        title: 'Edit Operations',
+        shortcuts: [
+          { key: 'Ctrl + Z', description: 'Undo' },
+          { key: 'Ctrl + Shift + Z', description: 'Redo' },
+          { key: 'Ctrl + Y', description: 'Redo (Alternative)' },
+          { key: 'Ctrl + D', description: 'Duplicate' },
+          { key: 'Delete / Backspace', description: 'Delete Selected' },
+        ]
+      },
+      {
+        title: 'Selection',
+        shortcuts: [
+          { key: 'Ctrl + A', description: 'Select All' },
+          { key: 'Escape', description: 'Deselect All' },
+          { key: 'Ctrl + G', description: 'Group Selected' },
+          { key: 'Ctrl + Shift + G', description: 'Ungroup Selected' },
+        ]
+      },
+      {
+        title: 'Navigation',
+        shortcuts: [
+          { key: '←↑↓→', description: 'Nudge (1px)' },
+          { key: 'Shift + ←↑↓→', description: 'Nudge (10px)' },
+        ]
+      },
+      {
+        title: 'Advanced',
+        shortcuts: [
+          { key: 'Ctrl + E', description: 'Export' },
+          { key: 'Ctrl + ;', description: 'Toggle Snapping' },
+        ]
+      }
+    ];
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+          <div className="flex items-start space-x-3">
+            <Keyboard className="w-5 h-5 text-blue-400 mt-0.5 flex-shrink-0" />
+            <div className="text-sm text-blue-400">
+              <p className="font-medium mb-1">Keyboard Shortcuts</p>
+              <p className="text-xs text-blue-400/80">
+                Shape shortcuts are disabled when typing in text fields. Press the key directly without any modifiers.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {shortcutCategories.map((category, index) => (
+          <div key={index} className="space-y-3">
+            <h3 className="text-sm font-semibold text-gray-300 flex items-center">
+              {category.title}
+            </h3>
+            <div className="space-y-2">
+              {category.shortcuts.map((shortcut, idx) => (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between p-3 bg-gray-700/30 rounded-lg hover:bg-gray-700/50 transition-colors"
+                >
+                  <span className="text-sm text-gray-300">{shortcut.description}</span>
+                  <kbd className="px-3 py-1.5 bg-gray-800 border border-gray-600 rounded-md text-xs font-mono text-yellow-400 shadow-sm">
+                    {shortcut.key}
+                  </kbd>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div className="p-4 bg-gray-700/20 border border-gray-600/30 rounded-lg">
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">Tips</h3>
+          <ul className="space-y-1 text-xs text-gray-400">
+            <li>• Shape shortcuts work only when not typing in text fields</li>
+            <li>• Use Shift with arrow keys for larger movements</li>
+            <li>• Combine Ctrl/Cmd with keys for advanced operations</li>
+            <li>• Zoom shortcuts work anywhere in the editor</li>
+          </ul>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderExportSettings = () => (
     <div className="space-y-6">
