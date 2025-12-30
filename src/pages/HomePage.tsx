@@ -35,6 +35,7 @@ export const HomePage: React.FC = () => {
   const [projectToDelete, setProjectToDelete] = useState<Project | LocalProject | null>(null);
   const [showLoadProjectModal, setShowLoadProjectModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [projectFileService] = useState(() => new ProjectFileService());
 
   useEffect(() => {
@@ -346,7 +347,16 @@ export const HomePage: React.FC = () => {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate('/login');
+    window.location.href = '/auth';
+  };
+
+  const handleLogoutClick = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleConfirmLogout = async () => {
+    setShowLogoutModal(false);
+    await handleSignOut();
   };
 
   if (authLoading || loading) {
@@ -444,7 +454,7 @@ export const HomePage: React.FC = () => {
                     Settings
                   </button>
                   <button
-                    onClick={handleSignOut}
+                    onClick={handleLogoutClick}
                     className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
                   >
                     <LogOut className="w-4 h-4" />
@@ -607,6 +617,31 @@ export const HomePage: React.FC = () => {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
       />
+
+      {showLogoutModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-xl border border-slate-700 p-6 max-w-md w-full mx-4 shadow-2xl">
+            <h2 className="text-xl font-bold text-white mb-2">Sign Out</h2>
+            <p className="text-slate-300 mb-6">
+              Are you sure you want to sign out? You'll need to log in again to access your projects.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="flex-1 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmLogout}
+                className="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white font-medium rounded-lg transition-colors"
+              >
+                Sign Out
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
