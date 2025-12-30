@@ -1,6 +1,7 @@
 import React from 'react';
 import { LayoutMode } from '../../hooks/useLayoutMode';
 import DesignModeLayout from './modes/DesignModeLayout';
+import VideoModeLayout from './modes/VideoModeLayout';
 import { DesignElement } from '../../types/design';
 import { BackgroundConfig } from '../../types/background';
 
@@ -122,6 +123,9 @@ const LayoutManager: React.FC<LayoutManagerProps> = (props) => {
   };
 
   const renderLayout = () => {
+    if (currentMode === 'video') {
+      return <VideoModeLayout {...commonProps} />;
+    }
     return <DesignModeLayout {...commonProps} />;
   };
 
