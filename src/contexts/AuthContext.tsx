@@ -37,25 +37,48 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     const initAuth = async () => {
+      console.log('[Auth] Initializing authentication...');
+      const initStartTime = Date.now();
+
+      // Set a maximum timeout of 15 seconds for initialization
+      const timeoutId = setTimeout(() => {
+        console.error('[Auth] Initialization timeout after 15 seconds');
+        setLoading(false);
+      }, 15000);
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
 
         if (session?.user) {
+          console.log('[Auth] Session found for user:', session.user.id);
           setUser(session.user);
           setSession(session);
-          await loadProfile(session.user.id);
+
+          const profileLoaded = await loadProfile(session.user.id);
+
+          if (!profileLoaded) {
+            console.error('[Auth] Failed to load profile - continuing without profile');
+            // Don't block the user, just log the error
+          }
+
           setIsGuest(false);
           localStorage.removeItem('guestMode');
+
+          const initTime = Date.now() - initStartTime;
+          console.log(`[Auth] Initialization completed in ${initTime}ms`);
         } else {
+          console.log('[Auth] No active session found');
           const guestMode = localStorage.getItem('guestMode');
           setIsGuest(guestMode === 'true');
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error('[Auth] Error initializing auth:', error);
         const guestMode = localStorage.getItem('guestMode');
         setIsGuest(guestMode === 'true');
       } finally {
+        clearTimeout(timeoutId);
         setLoading(false);
+        console.log('[Auth] Auth loading state set to false');
       }
     };
 
@@ -63,18 +86,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log(`[Auth] Auth state changed: ${event}`);
+
         if (event === 'SIGNED_IN' && session) {
+          console.log('[Auth] User signed in:', session.user.id);
           setUser(session.user);
           setSession(session);
           await loadProfile(session.user.id);
           setIsGuest(false);
           localStorage.removeItem('guestMode');
         } else if (event === 'SIGNED_OUT') {
+          console.log('[Auth] User signed out');
           setUser(null);
           setSession(null);
           setProfile(null);
           setIsGuest(false);
         } else if (event === 'TOKEN_REFRESHED' && session) {
+          console.log('[Auth] Token refreshed');
           setSession(session);
         }
       }
@@ -85,18 +113,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const loadProfile = async (userId: string) => {
+  const loadProfile = async (userId: string, retries = 0, maxRetries = 10): Promise<boolean> => {
     try {
+      console.log(`[Auth] Loading profile for user ${userId} (attempt ${retries + 1}/${maxRetries + 1})`);
+
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', userId)
         .maybeSingle();
 
-      if (error) throw error;
-      setProfile(data);
+      if (error) {
+        console.error('[Auth] Error loading profile:', error);
+        throw error;
+      }
+
+      if (data) {
+        console.log('[Auth] Profile loaded successfully:', { id: data.id, username: data.username, email: data.email });
+        setProfile(data);
+        return true;
+      }
+
+      // Profile not found yet - might still be creating
+      if (retries < maxRetries) {
+        console.log('[Auth] Profile not found yet, retrying in 500ms...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return await loadProfile(userId, retries + 1, maxRetries);
+      }
+
+      console.error('[Auth] Profile not found after maximum retries');
+      return false;
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('[Auth] Exception in loadProfile:', error);
+
+      // Retry on error if we haven't exceeded max retries
+      if (retries < maxRetries) {
+        console.log('[Auth] Retrying after error in 500ms...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+        return await loadProfile(userId, retries + 1, maxRetries);
+      }
+
+      return false;
     }
   };
 
@@ -153,7 +210,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signUpWithEmail = async (email: string, password: string, fullName: string, username: string) => {
+    console.log('[Auth] Starting signup process for:', email);
+    const signupStartTime = Date.now();
+
     try {
+      // Check for existing username
+      console.log('[Auth] Checking username availability:', username);
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('username')
@@ -161,11 +223,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
 
       if (existingProfile) {
+        console.warn('[Auth] Username already taken:', username);
         return {
           error: { message: 'Username already taken', name: 'AuthError', status: 400 } as AuthError,
         };
       }
 
+      // Create the auth user
+      console.log('[Auth] Creating auth user...');
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -179,17 +244,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Signup error:', error);
+        console.error('[Auth] Signup error:', error);
         return { error };
       }
 
-      if (data?.user && !data.session) {
-        console.log('User created but needs email confirmation');
+      if (!data?.user) {
+        console.error('[Auth] No user returned from signup');
+        return {
+          error: { message: 'Failed to create user', name: 'AuthError', status: 500 } as AuthError,
+        };
+      }
+
+      console.log('[Auth] User created:', data.user.id);
+
+      // If there's a session, verify profile was created
+      if (data.session) {
+        console.log('[Auth] Session created, verifying profile...');
+
+        const profileCreated = await loadProfile(data.user.id);
+
+        if (!profileCreated) {
+          console.error('[Auth] Profile verification failed after signup');
+          // Don't fail the signup, but log the issue
+          console.warn('[Auth] User may need to refresh or sign in again');
+        } else {
+          console.log('[Auth] Profile verified successfully');
+        }
+
+        const signupTime = Date.now() - signupStartTime;
+        console.log(`[Auth] Signup completed in ${signupTime}ms`);
+      } else {
+        console.log('[Auth] User created but needs email confirmation');
       }
 
       return { error: null };
     } catch (err) {
-      console.error('Signup exception:', err);
+      console.error('[Auth] Signup exception:', err);
       return { error: err as AuthError };
     }
   };

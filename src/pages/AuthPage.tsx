@@ -105,17 +105,22 @@ export const AuthPage: React.FC = () => {
     setSignInError('');
     setSignInLoading(true);
 
+    console.log('[AuthPage] Starting sign in process');
+
     try {
       const { error } = isEmail(signInIdentifier)
         ? await signInWithEmail(signInIdentifier, signInPassword)
         : await signInWithUsername(signInIdentifier, signInPassword);
 
       if (error) {
+        console.error('[AuthPage] Sign in failed:', error);
         setSignInError(error.message || 'Failed to sign in');
       } else {
+        console.log('[AuthPage] Sign in successful, navigating to home');
         navigate('/home');
       }
     } catch (err) {
+      console.error('[AuthPage] Sign in exception:', err);
       setSignInError('An unexpected error occurred');
     } finally {
       setSignInLoading(false);
@@ -125,6 +130,8 @@ export const AuthPage: React.FC = () => {
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setSignUpError('');
+
+    console.log('[AuthPage] Starting signup process');
 
     if (!signUpEmail || !signUpPassword || !signUpUsername || !signUpFullName) {
       setSignUpError('All fields are required');
@@ -161,14 +168,18 @@ export const AuthPage: React.FC = () => {
     setSignUpLoading(true);
 
     try {
+      console.log('[AuthPage] Calling signUpWithEmail');
       const { error } = await signUpWithEmail(signUpEmail, signUpPassword, signUpFullName, signUpUsername);
 
       if (error) {
+        console.error('[AuthPage] Signup failed:', error);
         setSignUpError(error.message || 'Failed to sign up');
       } else {
+        console.log('[AuthPage] Signup successful, navigating to home');
         navigate('/home');
       }
     } catch (err) {
+      console.error('[AuthPage] Signup exception:', err);
       setSignUpError('An unexpected error occurred');
     } finally {
       setSignUpLoading(false);

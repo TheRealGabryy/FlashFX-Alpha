@@ -29,6 +29,7 @@ export const HomePage: React.FC = () => {
   const [selectedProject, setSelectedProject] = useState<Project | LocalProject | null>(null);
   const [projectTitle, setProjectTitle] = useState('');
   const [loading, setLoading] = useState(true);
+  const [loadTimeout, setLoadTimeout] = useState(false);
   const [showNewProjectModal, setShowNewProjectModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | LocalProject | null>(null);
@@ -37,12 +38,32 @@ export const HomePage: React.FC = () => {
   const [projectFileService] = useState(() => new ProjectFileService());
 
   useEffect(() => {
+    console.log('[HomePage] Auth state changed:', { user: !!user, isGuest, authLoading });
+
     if (isGuest || (!user && !authLoading)) {
+      console.log('[HomePage] Loading guest projects');
       loadGuestProjects();
     } else if (user) {
+      console.log('[HomePage] Loading user projects');
       loadProjects();
     }
   }, [user, isGuest, authLoading]);
+
+  // Add timeout mechanism to prevent infinite loading
+  useEffect(() => {
+    console.log('[HomePage] Setting up loading timeout');
+    const timeoutId = setTimeout(() => {
+      if (loading || authLoading) {
+        console.error('[HomePage] Loading timeout after 10 seconds');
+        setLoadTimeout(true);
+        setLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
+  }, [loading, authLoading]);
 
   useEffect(() => {
     if (selectedProject) {
@@ -52,18 +73,21 @@ export const HomePage: React.FC = () => {
 
   const loadGuestProjects = () => {
     try {
+      console.log('[HomePage] Loading guest projects from localStorage');
       setLoading(true);
       const stored = localStorage.getItem(GUEST_PROJECTS_KEY);
       const guestProjects: LocalProject[] = stored ? JSON.parse(stored) : [];
+      console.log(`[HomePage] Loaded ${guestProjects.length} guest projects`);
       setProjects(guestProjects);
       if (guestProjects.length > 0) {
         setSelectedProject(guestProjects[0]);
       }
     } catch (error) {
-      console.error('Error loading guest projects:', error);
+      console.error('[HomePage] Error loading guest projects:', error);
       setProjects([]);
     } finally {
       setLoading(false);
+      console.log('[HomePage] Guest projects loaded, loading state set to false');
     }
   };
 
@@ -77,21 +101,28 @@ export const HomePage: React.FC = () => {
 
   const loadProjects = async () => {
     try {
+      console.log('[HomePage] Loading projects from database for user:', user?.id);
       setLoading(true);
       const { data, error } = await supabase
         .from('projects')
         .select('*')
         .order('updated_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('[HomePage] Error loading projects:', error);
+        throw error;
+      }
+
+      console.log(`[HomePage] Loaded ${data?.length || 0} projects`);
       setProjects(data || []);
       if (data && data.length > 0) {
         setSelectedProject(data[0]);
       }
     } catch (error) {
-      console.error('Error loading projects:', error);
+      console.error('[HomePage] Exception loading projects:', error);
     } finally {
       setLoading(false);
+      console.log('[HomePage] Projects loaded, loading state set to false');
     }
   };
 
@@ -320,8 +351,59 @@ export const HomePage: React.FC = () => {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500"></div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-8">
+        <div className="text-center max-w-md">
+          {!loadTimeout ? (
+            <>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-amber-500 mx-auto mb-4"></div>
+              <p className="text-slate-300 text-lg mb-2">
+                {authLoading ? 'Initializing...' : 'Loading your workspace...'}
+              </p>
+              <p className="text-slate-400 text-sm">
+                This should only take a moment
+              </p>
+            </>
+          ) : (
+            <div className="bg-slate-800/50 border border-slate-700 rounded-lg p-6">
+              <div className="text-amber-500 mb-4">
+                <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Loading Timeout</h2>
+              <p className="text-slate-300 mb-6">
+                We're having trouble loading your workspace. This may be due to a slow connection or a temporary issue.
+              </p>
+              <div className="space-y-3">
+                <button
+                  onClick={() => {
+                    setLoadTimeout(false);
+                    setLoading(true);
+                    if (user) {
+                      loadProjects();
+                    } else {
+                      loadGuestProjects();
+                    }
+                  }}
+                  className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-semibold py-3 px-4 rounded-lg transition-all duration-200"
+                >
+                  Retry
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.setItem('guestMode', 'true');
+                    setLoadTimeout(false);
+                    navigate('/home');
+                    window.location.reload();
+                  }}
+                  className="w-full border-2 border-slate-600 hover:border-amber-500 bg-slate-800/50 hover:bg-slate-700/50 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200"
+                >
+                  Continue as Guest
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
