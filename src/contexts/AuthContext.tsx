@@ -15,6 +15,7 @@ type AuthContextType = {
   signUpWithEmail: (email: string, password: string, fullName: string, username: string) => Promise<{ error: AuthError | null }>;
   continueAsGuest: () => void;
   signOut: () => Promise<void>;
+  refreshProfile: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -35,8 +36,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isGuest, setIsGuest] = useState(false);
 
   useEffect(() => {
-    setIsGuest(true);
-    setLoading(false);
+    const initAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
+          setUser(session.user);
+          setSession(session);
+          await loadProfile(session.user.id);
+          setIsGuest(false);
+          localStorage.removeItem('guestMode');
+        } else {
+          const guestMode = localStorage.getItem('guestMode');
+          setIsGuest(guestMode === 'true');
+        }
+      } catch (error) {
+        console.error('Error initializing auth:', error);
+        const guestMode = localStorage.getItem('guestMode');
+        setIsGuest(guestMode === 'true');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_IN' && session) {
+          setUser(session.user);
+          setSession(session);
+          await loadProfile(session.user.id);
+          setIsGuest(false);
+          localStorage.removeItem('guestMode');
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
+          setProfile(null);
+          setIsGuest(false);
+        } else if (event === 'TOKEN_REFRESHED' && session) {
+          setSession(session);
+        }
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadProfile = async (userId: string) => {
@@ -168,6 +214,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setSession(null);
   };
 
+  const refreshProfile = async () => {
+    if (user) {
+      await loadProfile(user.id);
+    }
+  };
+
   const value = {
     user,
     profile,
@@ -181,6 +233,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUpWithEmail,
     continueAsGuest,
     signOut,
+    refreshProfile,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

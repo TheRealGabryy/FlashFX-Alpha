@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from '../hooks/useNavigate';
 import { supabase, Project } from '../lib/supabase';
-import { Plus, LogOut, Sparkles, Trash2, ImageIcon, Upload, Download } from 'lucide-react';
+import { Plus, LogOut, Sparkles, Trash2, ImageIcon, Upload, Download, Settings } from 'lucide-react';
 import NewProjectModal from '../components/modals/NewProjectModal';
 import DeleteProjectModal from '../components/modals/DeleteProjectModal';
 import LoadProjectModal from '../components/modals/LoadProjectModal';
+import { SettingsModal } from '../components/modals/SettingsModal';
 import { ProjectFileService } from '../services/ProjectFileService';
 import { StorageService } from '../services/StorageService';
 import { StorageIndicator } from '../components/storage/StorageIndicator';
@@ -32,6 +33,7 @@ export const HomePage: React.FC = () => {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [projectToDelete, setProjectToDelete] = useState<Project | LocalProject | null>(null);
   const [showLoadProjectModal, setShowLoadProjectModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [projectFileService] = useState(() => new ProjectFileService());
 
   useEffect(() => {
@@ -324,32 +326,25 @@ export const HomePage: React.FC = () => {
     );
   }
 
-  const displayName = isGuest ? 'Guest User' : (profile?.full_name || profile?.email || 'User');
+  const displayUsername = isGuest ? 'Guest User' : (profile?.username || profile?.email || 'User');
 
   return (
     <div className="h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex flex-col overflow-hidden">
       <nav className="relative border-b border-slate-700/50 bg-slate-800/30 backdrop-blur-xl">
         <div className="px-6">
           <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 bg-gradient-to-br from-amber-500 to-yellow-500 rounded-lg">
-                <Sparkles className="w-6 h-6 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white">FlashFX editor</h1>
-                <p className="text-xs text-slate-400">Design Studio</p>
-              </div>
+            <div className="text-sm text-slate-400">
+              {projects.length} {projects.length === 1 ? 'project' : 'projects'}
             </div>
 
             <div className="flex items-center gap-4">
               {!isGuest && <StorageIndicator variant="compact" />}
-              <div className="text-right">
-                <p className="text-sm font-medium text-white">
-                  {displayName}
-                  {isGuest && <span className="ml-2 px-2 py-0.5 bg-amber-500/20 text-amber-400 text-xs rounded">Guest</span>}
-                </p>
-                <p className="text-xs text-slate-400">{projects.length} projects</p>
-              </div>
+              {!isGuest && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-700/30 border border-slate-600 rounded-lg">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm font-medium text-white">@{displayUsername}</span>
+                </div>
+              )}
               {isGuest ? (
                 <button
                   onClick={() => navigate('/auth')}
@@ -358,13 +353,22 @@ export const HomePage: React.FC = () => {
                   Sign In
                 </button>
               ) : (
-                <button
-                  onClick={handleSignOut}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  Sign Out
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowSettingsModal(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    Settings
+                  </button>
+                  <button
+                    onClick={handleSignOut}
+                    className="flex items-center gap-2 px-4 py-2 bg-slate-700/50 hover:bg-slate-700 text-white rounded-lg transition-colors"
+                  >
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -515,6 +519,11 @@ export const HomePage: React.FC = () => {
         isOpen={showLoadProjectModal}
         onClose={() => setShowLoadProjectModal(false)}
         onLoad={handleUploadProject}
+      />
+
+      <SettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
     </div>
   );
