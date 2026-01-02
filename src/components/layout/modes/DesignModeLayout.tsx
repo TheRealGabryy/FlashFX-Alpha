@@ -311,6 +311,7 @@ const DesignModeLayout: React.FC<DesignModeLayoutProps> = ({
                 onSaveProject={onSaveProjectFile}
                 onLoadProject={onLoadProjectFile}
                 onStartTutorial={startTutorial}
+                onExitToHome={onExitToHome}
               />
             </div>
           </div>

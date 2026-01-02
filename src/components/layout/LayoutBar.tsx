@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, Film, Save, FolderOpen, HelpCircle } from 'lucide-react';
+import { Palette, Film, Download, FolderOpen, HelpCircle, LogOut } from 'lucide-react';
 import { LayoutMode } from '../../hooks/useLayoutMode';
 
 interface LayoutBarProps {
@@ -9,6 +9,7 @@ interface LayoutBarProps {
   onSaveProject?: () => void;
   onLoadProject?: () => void;
   onStartTutorial?: () => void;
+  onExitToHome?: () => void;
 }
 
 const LayoutBar: React.FC<LayoutBarProps> = ({
@@ -17,7 +18,8 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
   isTransitioning,
   onSaveProject,
   onLoadProject,
-  onStartTutorial
+  onStartTutorial,
+  onExitToHome
 }) => {
   return (
     <div
@@ -42,10 +44,10 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
           <button
             onClick={onSaveProject}
             className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm text-gray-300 hover:text-white hover:bg-gray-700/50 transition-all"
-            title="Save Project"
+            title="Download Project"
           >
-            <Save className="w-4 h-4" />
-            <span>Save</span>
+            <Download className="w-4 h-4" />
+            <span>Download</span>
           </button>
         )}
       </div>
@@ -126,6 +128,16 @@ const LayoutBar: React.FC<LayoutBarProps> = ({
           >
             <HelpCircle className="w-4 h-4" />
             <span>Tutorial</span>
+          </button>
+        )}
+        {onExitToHome && (
+          <button
+            onClick={onExitToHome}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium text-sm bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-all"
+            title="Exit to Home"
+          >
+            <LogOut className="w-4 h-4" />
+            <span>Exit</span>
           </button>
         )}
       </div>

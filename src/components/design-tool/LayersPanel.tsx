@@ -317,33 +317,7 @@ const LayersPanel: React.FC<LayersPanelProps> = ({
     <div className="h-full bg-gray-800/50 backdrop-blur-xl flex flex-col overflow-hidden min-h-0" data-tutorial-target="layers-panel">
       {/* Tab Navigation */}
       <div className="p-2 border-b border-gray-700/50">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleManualSave}
-              disabled={isSaving || !onSaveProject}
-              className={`flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium transition-all duration-200 ${
-                isSaving
-                  ? 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
-                  : 'bg-green-500/20 text-green-400 hover:bg-green-500/30 border border-green-500/50'
-              }`}
-              title="Save Project"
-            >
-              <Save className="w-3 h-3" />
-              <span>{isSaving ? 'Saving...' : 'Save'}</span>
-            </button>
-
-            <button
-              onClick={handleExit}
-              disabled={!onExitToHome}
-              className="flex items-center space-x-1 px-2 py-1 rounded text-xs font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/50 transition-all duration-200"
-              title="Exit to Home"
-            >
-              <LogOut className="w-3 h-3" />
-              <span>Exit</span>
-            </button>
-          </div>
-
+        <div className="flex items-center justify-end mb-2">
           <div className="flex items-center space-x-1 text-xs">
             <span className="text-gray-500">Autosave:</span>
             <span className="font-mono text-yellow-400 font-semibold">{autosaveCountdown}s</span>

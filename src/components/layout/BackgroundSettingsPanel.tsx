@@ -144,12 +144,7 @@ const BackgroundSettingsPanel: React.FC<BackgroundSettingsPanelProps> = ({
               <Palette className="w-6 h-6 text-gray-500" />
             </div>
             <p className="text-xs text-gray-500 mb-3">Canvas has transparent background</p>
-            <button
-              onClick={addLayer}
-              className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-yellow-400 to-orange-500 text-gray-900 text-xs font-semibold hover:from-yellow-300 hover:to-orange-400 transition-all"
-            >
-              Add First Color
-            </button>
+            <p className="text-xs text-gray-400">Click "Add Gradient Layer" below to start</p>
           </div>
         ) : (
           <>
